@@ -180,6 +180,21 @@ def discover_subreddits_tool(
         - has_more_results: indicates if limit was reached
         - search_suggestions: alternative queries if few results found
         - total_found: shows impact of NSFW filtering
+    
+    IMPORTANT - Token Limits & Batch Strategy:
+        MCP has a 25,000 token response limit. Large batch queries may exceed this.
+        
+        For comprehensive discovery (e.g., all gaming communities):
+        - Use MULTIPLE smaller batches instead of one large batch
+        - Safe: 5 queries with limit=10 each (uses ~3-5K tokens)
+        - Risky: 10+ queries with limit=15 each (may exceed token limit)
+        
+        Example for comprehensive gaming discovery:
+        - Call 1: queries=["gaming", "video games", "pc gaming", "console", "esports"]
+        - Call 2: queries=["board games", "tabletop", "card games", "rpg", "chess"]  
+        - Call 3: queries=["retro gaming", "arcade", "indie games", "mobile gaming"]
+        
+        This approach ensures complete results without token overflow errors.
     """
     # Handle string JSON input from MCP (convert to list)
     if queries and isinstance(queries, str):
