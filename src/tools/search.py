@@ -4,24 +4,22 @@ from prawcore import NotFound, Forbidden
 from ..models import SearchResult, RedditPost
 
 
-def search_reddit(
+def search_all_reddit(
     query: str,
     reddit: praw.Reddit,
-    subreddit: Optional[str] = None,
     sort: Literal["relevance", "hot", "top", "new"] = "relevance",
     time_filter: Literal["all", "year", "month", "week", "day"] = "all",
-    limit: int = 25
+    limit: int = 10
 ) -> Dict[str, Any]:
     """
-    Search Reddit content.
+    Search for posts across all of Reddit.
     
     Args:
         query: Search query string
         reddit: Configured Reddit client
-        subreddit: Optional subreddit to limit search to
         sort: Sort method for results
         time_filter: Time filter for results
-        limit: Maximum number of results (max 100)
+        limit: Maximum number of results (max 100, default 10)
     
     Returns:
         Dictionary containing search results
@@ -30,27 +28,13 @@ def search_reddit(
         # Validate limit
         limit = min(max(1, limit), 100)
         
-        # Perform search
-        if subreddit:
-            try:
-                subreddit_obj = reddit.subreddit(subreddit)
-                search_results = subreddit_obj.search(
-                    query,
-                    sort=sort,
-                    time_filter=time_filter,
-                    limit=limit
-                )
-            except NotFound:
-                return {"error": f"Subreddit r/{subreddit} not found"}
-            except Forbidden:
-                return {"error": f"Access to r/{subreddit} forbidden"}
-        else:
-            search_results = reddit.subreddit("all").search(
-                query,
-                sort=sort,
-                time_filter=time_filter,
-                limit=limit
-            )
+        # Search across all of Reddit
+        search_results = reddit.subreddit("all").search(
+            query,
+            sort=sort,
+            time_filter=time_filter,
+            limit=limit
+        )
         
         # Parse results
         results = []
@@ -75,3 +59,77 @@ def search_reddit(
         
     except Exception as e:
         return {"error": f"Search failed: {str(e)}"}
+
+
+def search_in_subreddit(
+    subreddit_name: str,
+    query: str,
+    reddit: praw.Reddit,
+    sort: Literal["relevance", "hot", "top", "new"] = "relevance",
+    time_filter: Literal["all", "year", "month", "week", "day"] = "all",
+    limit: int = 10
+) -> Dict[str, Any]:
+    """
+    Search for posts within a specific subreddit.
+    
+    Args:
+        subreddit_name: Name of the subreddit to search in (required)
+        query: Search query string
+        reddit: Configured Reddit client
+        sort: Sort method for results
+        time_filter: Time filter for results
+        limit: Maximum number of results (max 100, default 10)
+    
+    Returns:
+        Dictionary containing search results from the specified subreddit
+    """
+    try:
+        # Validate limit
+        limit = min(max(1, limit), 100)
+        
+        # Clean subreddit name (remove r/ prefix if present)
+        clean_name = subreddit_name.replace("r/", "").replace("/r/", "").strip()
+        
+        # Search within the specified subreddit
+        try:
+            subreddit_obj = reddit.subreddit(clean_name)
+            # Verify subreddit exists
+            _ = subreddit_obj.display_name
+            
+            search_results = subreddit_obj.search(
+                query,
+                sort=sort,
+                time_filter=time_filter,
+                limit=limit
+            )
+        except NotFound:
+            return {
+                "error": f"Subreddit r/{clean_name} not found",
+                "suggestion": "Use discover_subreddits_tool to find valid subreddit names"
+            }
+        except Forbidden:
+            return {"error": f"Access to r/{clean_name} forbidden (may be private)"}
+        
+        # Parse results
+        results = []
+        for submission in search_results:
+            results.append(RedditPost(
+                id=submission.id,
+                title=submission.title,
+                author=str(submission.author) if submission.author else "[deleted]",
+                subreddit=submission.subreddit.display_name,
+                score=submission.score,
+                created_utc=submission.created_utc,
+                url=submission.url,
+                num_comments=submission.num_comments
+            ))
+        
+        result = SearchResult(
+            results=results,
+            count=len(results)
+        )
+        
+        return result.model_dump()
+        
+    except Exception as e:
+        return {"error": f"Search in subreddit failed: {str(e)}"}
