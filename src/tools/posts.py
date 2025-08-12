@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, Literal
+from typing import Optional, Dict, Any, Literal, List
 import praw
 from prawcore import NotFound, Forbidden
 from ..models import SubredditPostsResult, RedditPost, SubredditInfo
@@ -28,15 +28,21 @@ def fetch_subreddit_posts(
         # Validate limit
         limit = min(max(1, limit), 100)
         
+        # Clean subreddit name (remove r/ prefix if present)
+        clean_name = subreddit_name.replace("r/", "").replace("/r/", "").strip()
+        
         # Get subreddit
         try:
-            subreddit = reddit.subreddit(subreddit_name)
+            subreddit = reddit.subreddit(clean_name)
             # Force fetch to check if subreddit exists
             _ = subreddit.display_name
         except NotFound:
-            return {"error": f"Subreddit r/{subreddit_name} not found"}
+            return {
+                "error": f"Subreddit r/{clean_name} not found",
+                "suggestion": "Use discover_subreddits_tool to find valid subreddit names"
+            }
         except Forbidden:
-            return {"error": f"Access to r/{subreddit_name} forbidden (may be private)"}
+            return {"error": f"Access to r/{clean_name} forbidden (may be private)"}
         
         # Get posts based on listing type
         if listing_type == "hot":
@@ -86,3 +92,88 @@ def fetch_subreddit_posts(
         
     except Exception as e:
         return {"error": f"Failed to fetch posts: {str(e)}"}
+
+
+def fetch_multiple_subreddits(
+    subreddit_names: List[str],
+    reddit: praw.Reddit,
+    listing_type: Literal["hot", "new", "top", "rising"] = "hot",
+    time_filter: Optional[Literal["all", "year", "month", "week", "day"]] = None,
+    limit_per_subreddit: int = 5
+) -> Dict[str, Any]:
+    """
+    Fetch posts from multiple subreddits in a single call.
+    
+    Args:
+        subreddit_names: List of subreddit names to fetch from
+        reddit: Configured Reddit client
+        listing_type: Type of listing to fetch
+        time_filter: Time filter for top posts
+        limit_per_subreddit: Maximum posts per subreddit (max 25)
+    
+    Returns:
+        Dictionary containing posts from all requested subreddits
+    """
+    try:
+        # Validate limit
+        limit_per_subreddit = min(max(1, limit_per_subreddit), 25)
+        
+        # Clean subreddit names and join with +
+        clean_names = [name.replace("r/", "").replace("/r/", "").strip() for name in subreddit_names]
+        multi_subreddit_str = "+".join(clean_names)
+        
+        # Get combined subreddit
+        try:
+            multi_subreddit = reddit.subreddit(multi_subreddit_str)
+            # Calculate total limit (max 100)
+            total_limit = min(limit_per_subreddit * len(clean_names), 100)
+            
+            # Get posts based on listing type
+            if listing_type == "hot":
+                submissions = multi_subreddit.hot(limit=total_limit)
+            elif listing_type == "new":
+                submissions = multi_subreddit.new(limit=total_limit)
+            elif listing_type == "rising":
+                submissions = multi_subreddit.rising(limit=total_limit)
+            elif listing_type == "top":
+                time_filter = time_filter or "all"
+                submissions = multi_subreddit.top(time_filter=time_filter, limit=total_limit)
+            else:
+                return {"error": f"Invalid listing_type: {listing_type}"}
+            
+            # Parse posts and group by subreddit
+            posts_by_subreddit = {}
+            for submission in submissions:
+                subreddit_name = submission.subreddit.display_name
+                
+                if subreddit_name not in posts_by_subreddit:
+                    posts_by_subreddit[subreddit_name] = []
+                
+                # Only add up to limit_per_subreddit posts per subreddit
+                if len(posts_by_subreddit[subreddit_name]) < limit_per_subreddit:
+                    posts_by_subreddit[subreddit_name].append({
+                        "id": submission.id,
+                        "title": submission.title,
+                        "author": str(submission.author) if submission.author else "[deleted]",
+                        "score": submission.score,
+                        "num_comments": submission.num_comments,
+                        "created_utc": submission.created_utc,
+                        "url": submission.url,
+                        "permalink": f"https://reddit.com{submission.permalink}"
+                    })
+            
+            return {
+                "subreddits_requested": clean_names,
+                "subreddits_found": list(posts_by_subreddit.keys()),
+                "posts_by_subreddit": posts_by_subreddit,
+                "total_posts": sum(len(posts) for posts in posts_by_subreddit.values())
+            }
+            
+        except Exception as e:
+            return {
+                "error": f"Failed to fetch from multiple subreddits: {str(e)}",
+                "suggestion": "Verify all subreddit names are valid. Use discover_subreddits_tool to find valid names."
+            }
+        
+    except Exception as e:
+        return {"error": f"Failed to process request: {str(e)}"}
