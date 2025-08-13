@@ -1,12 +1,14 @@
-# Reddit MCP Server - MVP
+# Reddit MCP Server
 
-A minimal Model Context Protocol (MCP) server that provides LLMs with access to Reddit content through three core tools. Built with FastMCP and PRAW for quick deployment.
+A Model Context Protocol (MCP) server that provides LLMs with comprehensive access to Reddit content through six powerful tools and three MCP resources. Built with FastMCP and PRAW for quick deployment.
 
 ## Features
 
-- **Search Reddit**: Search across all of Reddit or specific subreddits
-- **Fetch Subreddit Posts**: Get posts from any subreddit (hot, new, top, rising)
+- **Search Reddit**: Search across all of Reddit or within specific subreddits
+- **Discover Subreddits**: Find relevant subreddits by topic with confidence scoring
+- **Fetch Posts**: Get posts from single or multiple subreddits efficiently
 - **Fetch Comments**: Retrieve posts with their complete comment trees
+- **MCP Resources**: Access popular subreddits, subreddit info, and server capabilities
 
 ## Quick Start
 
@@ -44,24 +46,29 @@ REDDIT_USER_AGENT=RedditMCP/1.0 by u/your_username
 
 ### Running the Server
 
+#### Production Mode
 ```bash
 uv run src/server.py
+```
+
+#### Development Mode (with MCP Inspector)
+```bash
+fastmcp dev src/server.py
 ```
 
 The server will start and be ready to accept MCP connections.
 
 ## Available Tools
 
-### 1. search_reddit_tool
+### 1. search_posts_tool
 
-Search Reddit content with filtering options.
+Search for posts across all of Reddit.
 
 **Parameters:**
 - `query` (required): Search query string
-- `subreddit`: Limit search to specific subreddit
 - `sort`: "relevance", "hot", "top", or "new" (default: "relevance")
 - `time_filter`: "all", "year", "month", "week", or "day" (default: "all")
-- `limit`: Maximum results, up to 100 (default: 25)
+- `limit`: Maximum results, up to 100 (default: 10)
 
 ### 2. fetch_subreddit_posts_tool
 
@@ -82,15 +89,98 @@ Retrieve a Reddit post with its comment tree.
 - `comment_limit`: Maximum comments to fetch (default: 100)
 - `comment_sort`: "best", "top", or "new" (default: "best")
 
+### 4. search_in_subreddit_tool
+
+Search for posts within a specific subreddit.
+
+**Parameters:**
+- `subreddit_name` (required): The subreddit to search in (without r/ prefix)
+- `query` (required): Search query string
+- `sort`: "relevance", "hot", "top", or "new" (default: "relevance")
+- `time_filter`: "all", "year", "month", "week", or "day" (default: "all")
+- `limit`: Maximum results, up to 100 (default: 10)
+
+### 5. discover_subreddits_tool
+
+Discover subreddits by searching for keywords or topics. Supports batch queries for efficiency.
+
+**Parameters:**
+- `query`: Single search term (e.g., "python", "gaming")
+- `queries`: List of search terms for batch discovery (more efficient!)
+- `limit`: Maximum results per query (default: 10)
+- `include_nsfw`: Whether to include NSFW subreddits (default: False)
+
+**Features:**
+- Confidence scoring based on name match, description, and activity
+- Batch mode reduces API calls significantly
+- Returns metadata including has_more_results and search suggestions
+
+### 6. fetch_multiple_subreddits_tool
+
+Fetch posts from multiple subreddits in a single efficient call.
+
+**Parameters:**
+- `subreddit_names` (required): List of subreddit names
+- `listing_type`: "hot", "new", "top", or "rising" (default: "hot")
+- `time_filter`: For top posts - "all", "year", "month", "week", or "day"
+- `limit_per_subreddit`: Maximum posts per subreddit (max 25, default: 5)
+
+## MCP Resources
+
+The server provides three MCP resources for accessing commonly used data:
+
+### 1. reddit://popular-subreddits
+Returns a list of the 25 most popular subreddits with subscriber counts and descriptions.
+
+### 2. reddit://subreddit/{name}/about
+Get detailed information about a specific subreddit including:
+- Title and description
+- Subscriber count and active users
+- Subreddit rules
+- Creation date and other metadata
+
+### 3. reddit://server-info
+Returns comprehensive information about the MCP server including:
+- Available tools and resources
+- Version information
+- Usage examples
+- Current rate limit status
+
 ## Usage Examples
 
-### Search for AI discussions
+### Search for AI discussions across Reddit
 ```python
-search_reddit_tool(
+search_posts_tool(
     query="artificial intelligence",
     sort="top",
     time_filter="week",
     limit=10
+)
+```
+
+### Search within a specific subreddit
+```python
+search_in_subreddit_tool(
+    subreddit_name="MachineLearning",
+    query="transformers",
+    sort="relevance",
+    limit=15
+)
+```
+
+### Discover relevant subreddits
+```python
+# Single query
+discover_subreddits_tool(
+    query="python",
+    limit=10,
+    include_nsfw=False
+)
+
+# Batch queries (more efficient!)
+discover_subreddits_tool(
+    queries=["django", "flask", "fastapi"],
+    limit=5
 )
 ```
 
@@ -100,6 +190,15 @@ fetch_subreddit_posts_tool(
     subreddit_name="technology",
     listing_type="new",
     limit=20
+)
+```
+
+### Fetch from multiple subreddits at once
+```python
+fetch_multiple_subreddits_tool(
+    subreddit_names=["python", "django", "flask"],
+    listing_type="hot",
+    limit_per_subreddit=5
 )
 ```
 
