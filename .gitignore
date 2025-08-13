@@ -1,1 +1,142 @@
+# Critical Security - Environment Variables and Secrets
+.env
+.env.*
+!.env.sample
+!.env.example
+*.key
+*.pem
+*.cert
+*.crt
+secrets/
+credentials/
+config/secrets.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+.ruff_cache/
+*.cover
+*.log
+
+# Virtual Environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+virtualenv/
+
+# Package Management & Build
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
+uv.lock
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+.atom/
+.brackets.json
+
+# Operating System
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Project Specific
 logs/
+*.log
+.claude/
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# Testing & Documentation
+.nox/
+docs/_build/
+.scrapy/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# macOS
+.AppleDouble
+.LSOverride
+Icon
+.DocumentRevisions-V100
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+$RECYCLE.BIN/
+*.lnk
+*.msi
+*.msm
+*.msp
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+*.tmp
+.history/
+
+# FastMCP specific
+.fastmcp/
+fastmcp.db

@@ -3,7 +3,8 @@
 import praw
 import re
 import math
-from typing import Dict, List, Any, Optional
+import json
+from typing import Dict, List, Any, Optional, Union
 
 
 def calculate_name_match_score(subreddit_name: str, query: str) -> float:
@@ -157,7 +158,7 @@ def calculate_confidence(subreddit, query: str) -> Dict[str, Any]:
 
 def discover_subreddits(
     query: Optional[str] = None,
-    queries: Optional[List[str]] = None,
+    queries: Optional[Union[List[str], str]] = None,
     reddit: praw.Reddit = None,
     limit: int = 10,
     include_nsfw: bool = False
@@ -167,7 +168,8 @@ def discover_subreddits(
     
     Args:
         query: Single search term to find subreddits
-        queries: List of search terms for batch discovery (more efficient)
+        queries: List of search terms for batch discovery (more efficient) 
+                 Can also be a JSON string like '["term1", "term2"]'
         reddit: Reddit instance
         limit: Maximum number of results per query (default 10)
         include_nsfw: Whether to include NSFW subreddits (default False)
@@ -175,8 +177,20 @@ def discover_subreddits(
     Returns:
         Dictionary with discovered subreddits and their metadata
     """
-    # Handle batch queries
+    # Handle batch queries - convert string to list if needed
     if queries:
+        # Handle case where LLM passes JSON string instead of array
+        if isinstance(queries, str):
+            try:
+                # Try to parse as JSON if it looks like a JSON array
+                if queries.strip().startswith('[') and queries.strip().endswith(']'):
+                    queries = json.loads(queries)
+                else:
+                    # Single string query, convert to single-item list
+                    queries = [queries]
+            except (json.JSONDecodeError, ValueError):
+                # If JSON parsing fails, treat as single string
+                queries = [queries]
         batch_results = {}
         total_api_calls = 0
         

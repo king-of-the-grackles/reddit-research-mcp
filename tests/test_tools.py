@@ -1,7 +1,13 @@
 import pytest
+import sys
+import os
 from unittest.mock import Mock, MagicMock
-from src.tools.search import search_reddit
-from src.tools.posts import fetch_subreddit_posts
+
+# Add project root to Python path so relative imports work
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from src.tools.search import search_all_reddit
+from src.tools.posts import fetch_subreddit_posts  
 from src.tools.comments import fetch_submission_with_comments
 
 
@@ -59,7 +65,7 @@ class TestSearchReddit:
         
         mock_reddit.subreddit.return_value.search.return_value = mock_submissions
         
-        result = search_reddit(
+        result = search_all_reddit(
             query="test query",
             reddit=mock_reddit,
             limit=10
@@ -71,19 +77,18 @@ class TestSearchReddit:
         assert result["results"][1]["title"] == "Second Post"
     
     def test_search_reddit_subreddit_not_found(self):
-        """Test search with non-existent subreddit."""
+        """Test search with failed request."""
         from prawcore import NotFound
         mock_reddit = Mock()
         mock_reddit.subreddit.side_effect = NotFound(Mock())
         
-        result = search_reddit(
+        result = search_all_reddit(
             query="test",
-            reddit=mock_reddit,
-            subreddit="nonexistent"
+            reddit=mock_reddit
         )
         
         assert "error" in result
-        assert "not found" in result["error"].lower()
+        assert "failed" in result["error"].lower()
 
 
 class TestFetchSubredditPosts:

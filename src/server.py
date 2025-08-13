@@ -14,7 +14,16 @@ from src.tools.discover import discover_subreddits
 from src.resources import register_resources
 
 # Initialize MCP server
-mcp = FastMCP("Reddit MCP")
+mcp = FastMCP("Reddit MCP", instructions="""
+Reddit MCP Server - Efficient Reddit Content Access
+
+IMPORTANT: For best results, follow this workflow:
+1. START by reading reddit://server-info for complete documentation
+2. Use discover_subreddits_tool FIRST to find relevant communities
+3. Batch operations when possible for efficiency
+
+Quick Start: Try the 'get_started' prompt for interactive guidance.
+""")
 
 # Initialize Reddit client
 reddit = get_reddit_client()
@@ -35,6 +44,8 @@ def search_posts_tool(
     
     Use this to find posts about any topic from anywhere on Reddit.
     For searching within a specific subreddit, use search_in_subreddit_tool instead.
+    
+    TIP: Consider using discover_subreddits_tool first to find relevant communities.
     
     Args:
         query: Search terms (e.g., "python tutorial", "machine learning news")
@@ -159,7 +170,7 @@ def discover_subreddits_tool(
     """
     Discover subreddits by searching for keywords or topics. Supports batch queries!
     
-    Use this tool FIRST when looking for subreddits. Batch mode is more efficient.
+    **RECOMMENDED FIRST STEP** - Use this tool FIRST when looking for subreddits. Batch mode is more efficient.
     
     Args:
         query: Single search term (e.g., "python", "gaming")
@@ -224,7 +235,7 @@ def fetch_multiple_subreddits_tool(
     """
     Fetch posts from multiple subreddits in a single efficient call.
     
-    This is more efficient than calling fetch_subreddit_posts_tool multiple times.
+    **MORE EFFICIENT** than calling fetch_subreddit_posts_tool multiple times.
     
     Args:
         subreddit_names: List of subreddit names (e.g., ["python", "MachineLearning", "artificial"])
@@ -246,6 +257,28 @@ def fetch_multiple_subreddits_tool(
         time_filter=time_filter,
         limit_per_subreddit=limit_per_subreddit
     )
+
+
+@mcp.prompt()
+def get_started() -> str:
+    """
+    Welcome to Reddit MCP! Returns initial guidance for using this server effectively.
+    """
+    return """Welcome to Reddit MCP! To use this server effectively:
+
+1. **First, read the server documentation**: Access the reddit://server-info resource for complete usage guidelines, best practices, and examples.
+
+2. **Key capabilities**:
+   - Search Reddit globally or within specific subreddits
+   - Discover relevant subreddits using batch queries
+   - Fetch posts and comments with efficient batch operations
+   
+3. **Best practices**:
+   - Use discover_subreddits_tool FIRST to find relevant communities
+   - Batch multiple queries together to reduce API calls
+   - Use fetch_multiple_subreddits_tool for efficient multi-subreddit fetching
+
+Start by reading reddit://server-info for detailed documentation and examples!"""
 
 
 def main():
