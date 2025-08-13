@@ -47,7 +47,8 @@ def search_all_reddit(
                 score=submission.score,
                 created_utc=submission.created_utc,
                 url=submission.url,
-                num_comments=submission.num_comments
+                num_comments=submission.num_comments,
+                permalink=f"https://reddit.com{submission.permalink}"
             ))
         
         result = SearchResult(
@@ -121,7 +122,8 @@ def search_in_subreddit(
                 score=submission.score,
                 created_utc=submission.created_utc,
                 url=submission.url,
-                num_comments=submission.num_comments
+                num_comments=submission.num_comments,
+                permalink=f"https://reddit.com{submission.permalink}"
             ))
         
         result = SearchResult(
