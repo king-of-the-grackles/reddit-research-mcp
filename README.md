@@ -182,73 +182,6 @@ The server provides access to Reddit through these operations via `execute_reddi
 | `get_operation_requirements` | Get detailed parameter schemas | Before complex operations |
 | `execute_reddit_operation` | Execute any Reddit operation | After getting requirements |
 
-## Legacy Direct Tools (Still Available)
-
-### 1. search_posts_tool
-
-Search for posts across all of Reddit.
-
-**Parameters:**
-- `query` (required): Search query string
-- `sort`: "relevance", "hot", "top", or "new" (default: "relevance")
-- `time_filter`: "all", "year", "month", "week", or "day" (default: "all")
-- `limit`: Maximum results, up to 100 (default: 10)
-
-### 2. fetch_subreddit_posts_tool
-
-Get posts from a specific subreddit.
-
-**Parameters:**
-- `subreddit_name` (required): Subreddit name (without r/ prefix)
-- `listing_type`: "hot", "new", "top", or "rising" (default: "hot")
-- `time_filter`: For top posts - "all", "year", "month", "week", or "day"
-- `limit`: Maximum posts, up to 100 (default: 25)
-
-### 3. fetch_submission_with_comments_tool
-
-Retrieve a Reddit post with its comment tree.
-
-**Parameters:**
-- `submission_id` OR `url`: Reddit post ID or full URL
-- `comment_limit`: Maximum comments to fetch (default: 100)
-- `comment_sort`: "best", "top", or "new" (default: "best")
-
-### 4. search_in_subreddit_tool
-
-Search for posts within a specific subreddit.
-
-**Parameters:**
-- `subreddit_name` (required): The subreddit to search in (without r/ prefix)
-- `query` (required): Search query string
-- `sort`: "relevance", "hot", "top", or "new" (default: "relevance")
-- `time_filter`: "all", "year", "month", "week", or "day" (default: "all")
-- `limit`: Maximum results, up to 100 (default: 10)
-
-### 5. discover_subreddits_tool
-
-Discover subreddits by searching for keywords or topics. Supports batch queries for efficiency.
-
-**Parameters:**
-- `query`: Single search term (e.g., "python", "gaming")
-- `queries`: List of search terms for batch discovery (more efficient!)
-- `limit`: Maximum results per query (default: 10)
-- `include_nsfw`: Whether to include NSFW subreddits (default: False)
-
-**Features:**
-- Confidence scoring based on name match, description, and activity
-- Batch mode reduces API calls significantly
-- Returns metadata including has_more_results and search suggestions
-
-### 6. fetch_multiple_subreddits_tool
-
-Fetch posts from multiple subreddits in a single efficient call.
-
-**Parameters:**
-- `subreddit_names` (required): List of subreddit names
-- `listing_type`: "hot", "new", "top", or "rising" (default: "hot")
-- `time_filter`: For top posts - "all", "year", "month", "week", or "day"
-- `limit_per_subreddit`: Maximum posts per subreddit (max 25, default: 5)
-
 ## MCP Resources
 
 The server provides three MCP resources for accessing commonly used data:
@@ -325,15 +258,6 @@ execute_reddit_operation("fetch_multiple", {
     "listing_type": "hot",
     "limit_per_subreddit": 8
 })
-```
-
-### 📊 Legacy Direct Tool Access
-
-```python
-# These still work for simple use cases
-search_posts_tool(query="quantum computing", limit=10)
-fetch_subreddit_posts_tool(subreddit_name="technology", limit=20)
-discover_subreddits_tool(queries=["AI", "ML", "robotics"])
 ```
 
 ## Testing
