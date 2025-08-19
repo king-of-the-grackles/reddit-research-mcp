@@ -47,6 +47,50 @@ uv run src/server.py
 
 ---
 
+## 🌐 Using on Smithery (Hosted Solution)
+
+Want to use this server without local setup? It's available on [Smithery](https://smithery.ai) - a platform for hosted MCP servers.
+
+### Getting Your Reddit API Credentials
+
+Before using the server on Smithery, you'll need Reddit API credentials. This takes about 2 minutes:
+
+1. **Go to Reddit App Preferences**
+   - Visit [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps) while logged into Reddit
+   
+2. **Create a New App**
+   - Click "Create App" or "Create Another App"
+   - Fill in the form:
+     - **Name**: `MCP Research Tool` (or any name you prefer)
+     - **App Type**: Select `script` (for personal use)
+     - **Description**: Optional - can leave blank
+     - **About URL**: Optional - can leave blank
+     - **Redirect URI**: `http://localhost:8080` (required but not used)
+   - Click "Create app"
+
+3. **Get Your Credentials**
+   - **Client ID**: The string under "personal use script" (looks like: `abc123def456`)
+   - **Client Secret**: The string next to "secret" (looks like: `ghi789jkl012mno345pqr678`)
+   - **User Agent**: Create one like: `MCP:research:v1.0 (by /u/yourusername)`
+
+### Connecting on Smithery
+
+1. **Find the Server**: Search for "Reddit Research MCP" on Smithery
+2. **Configure Your Session**: When connecting, you'll be prompted for:
+   - `REDDIT_CLIENT_ID`: Your client ID from step 3
+   - `REDDIT_CLIENT_SECRET`: Your client secret from step 3  
+   - `REDDIT_USER_AGENT`: Your user agent string from step 3
+3. **Connect**: Click connect and the server will be available to your AI assistant
+
+### Security Notes
+
+- 🔒 Your credentials are securely transmitted and stored only for your session
+- 🔐 Each user's configuration is isolated - your credentials are never shared
+- ✅ The server only requests read-only access to public Reddit data
+- 🚫 No Reddit account login required - the app uses app-only authentication
+
+---
+
 ## 🎨 Key Features
 
 ### 🔍 **Semantic Subreddit Discovery**
