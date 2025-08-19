@@ -524,7 +524,7 @@ def main():
         # HTTP mode for Smithery deployment
         print("Reddit MCP Server starting in HTTP mode...", flush=True)
         
-        # Get the Starlette app from FastMCP
+        # Get the Starlette app from FastMCP (supports SSE/streaming by default)
         app = mcp.http_app()
         
         # Add CORS middleware for browser compatibility

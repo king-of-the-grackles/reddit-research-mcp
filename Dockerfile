@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.12-alpine
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 # Set working directory
 WORKDIR /app
@@ -6,9 +6,6 @@ WORKDIR /app
 # Enable bytecode compilation for better performance
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
-
-# Install system dependencies if needed
-RUN apk add --no-cache gcc musl-dev python3-dev
 
 # Copy dependency files first for better caching
 COPY pyproject.toml uv.lock ./
