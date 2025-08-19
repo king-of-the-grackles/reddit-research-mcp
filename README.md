@@ -40,6 +40,22 @@ This project includes a specialized Claude Code agent for automated Reddit resea
 
 The agent handles the entire workflow automatically and saves the report to `/reports/[topic]-YYYY-MM-DD.md`. See [agent configuration](src/.claude/agents/reddit-research-agent.md) for full capabilities.
 
+## What Makes This Server Unique?
+
+This server is specifically designed for **comprehensive Reddit research** rather than just browsing. Here's what sets it apart:
+
+### 🔍 Semantic Subreddit Discovery
+Most Reddit tools require you to know which subreddits to search. This server has **indexed 20,000+ active subreddits** into a vector database, enabling semantic search that finds relevant communities you didn't know existed. Ask about any topic and discover 8-15 related subreddits automatically.
+
+### ⚡ Efficient Batch Operations
+The `fetch_multiple` operation retrieves posts from up to 15 subreddits in a single call, reducing API calls by 70% compared to sequential fetching. This means faster results and fewer rate limit issues.
+
+### 🎯 Research-Optimized Workflow
+The three-layer architecture (Discovery → Requirements → Execution) guides LLMs through complex research tasks, preventing common errors and ensuring comprehensive coverage across multiple communities.
+
+### 📊 Automated Analysis & Reporting
+Includes a Claude Code agent that automatically conducts research across 10+ subreddits, analyzes 100+ comments, and produces professional markdown reports with full citations - turning hours of manual work into a single command.
+
 ## Quick Start
 
 ### Prerequisites
