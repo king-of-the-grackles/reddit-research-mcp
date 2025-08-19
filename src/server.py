@@ -7,7 +7,7 @@ import uvicorn
 from pathlib import Path
 from datetime import datetime
 from starlette.middleware.cors import CORSMiddleware
-from middleware import SmitheryConfigMiddleware
+from src.middleware import SmitheryConfigMiddleware
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
