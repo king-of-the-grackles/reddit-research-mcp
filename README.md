@@ -50,8 +50,8 @@ The agent handles the entire workflow automatically and saves the report to `/re
 
 1. Clone and install:
 ```bash
-git clone <repository-url>
-cd reddit-mcp-poc
+git clone https://github.com/king-of-the-grackles/reddit-research-mcp.git
+cd reddit-research-mcp
 pip install uv
 uv sync
 ```

@@ -380,7 +380,7 @@ src/
 ```bash
 REDDIT_CLIENT_ID=your_client_id
 REDDIT_CLIENT_SECRET=your_client_secret  
-REDDIT_USER_AGENT=python:reddit-mcp-poc:v1.0.0 (by /u/yourusername)
+REDDIT_USER_AGENT=python:reddit-research-mcp:v1.0.0 (by /u/yourusername)
 ```
 
 ---

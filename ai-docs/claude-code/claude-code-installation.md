@@ -1,8 +1,8 @@
 # Claude Code MCP Server Installation Instructions
 
-## Adding reddit-mcp-poc to Claude Code
+## Adding reddit-research-mcp to Claude Code
 
-Follow these steps to add the reddit-mcp-poc MCP server to your Claude Code configuration:
+Follow these steps to add the reddit-research-mcp MCP server to your Claude Code configuration:
 
 ### Prerequisites
 - Ensure you have `uv` installed and the FastMCP server is working locally
@@ -12,7 +12,7 @@ Follow these steps to add the reddit-mcp-poc MCP server to your Claude Code conf
 
 1. **Add the MCP server to Claude Code:**
    ```bash
-   claude mcp add -s user -t stdio reddit-mcp-poc uv run fastmcp run /Users/chrisivester/Documents/mbp-obsidian-vault/02-Projects/software-projects/MCP/reddit-mcp-poc/reddit-mcp-poc/src/server.py
+   claude mcp add -s user -t stdio reddit-research-mcp uv run fastmcp run /Users/chrisivester/Documents/mbp-obsidian-vault/02-Projects/software-projects/MCP/reddit-research-mcp/src/server.py
    ```
 
 2. **Verify the installation:**
@@ -20,7 +20,7 @@ Follow these steps to add the reddit-mcp-poc MCP server to your Claude Code conf
    claude mcp list
    ```
    
-   You should see `reddit-mcp-poc` listed with a ✓ Connected status.
+   You should see `reddit-research-mcp` listed with a ✓ Connected status.
 
 ### Troubleshooting
 
@@ -29,7 +29,7 @@ Follow these steps to add the reddit-mcp-poc MCP server to your Claude Code conf
 - Ensure there are no line breaks or truncation in the command path
 - Remove and re-add the server if the path was truncated:
   ```bash
-  claude mcp remove -s user reddit-mcp-poc
+  claude mcp remove -s user reddit-research-mcp
   claude mcp add -s user -t stdio reddit-mcp-poc uv run fastmcp run [FULL_PATH_TO_SERVER.PY]
   ```
 
@@ -41,4 +41,4 @@ Follow these steps to add the reddit-mcp-poc MCP server to your Claude Code conf
 ### Configuration Details
 - **Scope**: User-level configuration (`-s user`)
 - **Transport**: STDIO (`-t stdio`)
-- **Server Name**: `reddit-mcp-poc`
+- **Server Name**: `reddit-research-mcp`

@@ -32,7 +32,7 @@ The agentic approach solves these issues by decomposing functionality into speci
 ## Directory Structure
 
 ```
-reddit-mcp-poc/src/
+reddit-research-mcp/src/
 ├── agents/
 │   ├── __init__.py
 │   ├── discovery_orchestrator.py

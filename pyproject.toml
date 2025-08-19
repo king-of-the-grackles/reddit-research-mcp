@@ -1,5 +1,5 @@
 [project]
-name = "reddit-mcp-poc"
+name = "reddit-research-mcp"
 version = "0.1.0"
 description = "A minimal Model Context Protocol server for Reddit content access"
 readme = "README.md"
