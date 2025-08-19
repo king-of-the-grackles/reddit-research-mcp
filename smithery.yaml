@@ -1,7 +1,7 @@
 runtime: "container"
 
 startCommand:
-  type: "http"
+  type: "custom_container"
   configSchema:
     type: "object"
     required: ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"]

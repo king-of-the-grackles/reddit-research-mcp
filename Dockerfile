@@ -33,14 +33,14 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Set up environment paths
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app:$PYTHONPATH"
-ENV PYTHONUNBUFFERED=1
-ENV PORT=8080
 
-# Default to http transport for Smithery deployment
+# Set environment for HTTP transport
 ENV TRANSPORT=http
+ENV PORT=8080
+ENV PYTHONUNBUFFERED=1
 
 # Expose port for HTTP mode
 EXPOSE 8080
 
-# Use fastmcp run command to properly start the HTTP server
-CMD ["uv", "run", "fastmcp", "run", "/app/src/server.py", "--transport", "http", "--port", "8080"]
+# Run the server directly with Python
+CMD ["python", "/app/src/server.py"]

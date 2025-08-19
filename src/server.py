@@ -1,14 +1,13 @@
 from fastmcp import FastMCP
 from fastmcp.prompts import Message
-from fastmcp.server.middleware import Middleware, MiddlewareContext
 from typing import Optional, Literal, List, Union, Dict, Any, Annotated
 import sys
 import os
-import base64
-import json
+import uvicorn
 from pathlib import Path
 from datetime import datetime
-from urllib.parse import unquote
+from starlette.middleware.cors import CORSMiddleware
+from middleware import SmitheryConfigMiddleware
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -23,41 +22,16 @@ from src.resources import register_resources
 # Global variable to store Smithery config
 smithery_config = {}
 
-# Forward declaration
-def initialize_reddit_client():
-    """Initialize or update Reddit client with current config."""
-    pass  # Will be defined later
 
-
-class SmitheryConfigMiddleware(Middleware):
-    """Middleware to extract Smithery configuration from HTTP requests."""
+def handle_config(config: dict):
+    """Handle configuration from Smithery."""
+    global smithery_config
+    smithery_config = config
     
-    async def on_message(self, context: MiddlewareContext, call_next):
-        """Extract Smithery config from HTTP context if available."""
-        # Check if we have FastMCP context with HTTP request
-        if context.fastmcp_context and hasattr(context.fastmcp_context, 'request'):
-            request = context.fastmcp_context.request
-            
-            # Check for config in query parameters
-            if hasattr(request, 'query_params') and 'config' in request.query_params:
-                try:
-                    config_b64 = unquote(request.query_params['config'])
-                    config_json = base64.b64decode(config_b64)
-                    config = json.loads(config_json)
-                    
-                    # Update global config
-                    global smithery_config
-                    smithery_config = config
-                    
-                    # Reinitialize Reddit client with new config
-                    initialize_reddit_client()
-                    
-                    print(f"Smithery config extracted: {list(config.keys())}")
-                except Exception as e:
-                    print(f"Error parsing Smithery config: {e}")
-        
-        # Continue with the request
-        return await call_next(context)
+    # Reinitialize Reddit client with new config
+    initialize_reddit_client()
+    
+    print(f"Config updated with keys: {list(config.keys())}")
 
 
 # Initialize MCP server
@@ -86,13 +60,10 @@ Reddit MCP Server - Three-Layer Architecture
 Quick Start: Read reddit://server-info for complete documentation.
 """)
 
-# Add Smithery config middleware for HTTP transport
-mcp.add_middleware(SmitheryConfigMiddleware())
-
 # Initialize Reddit client (will be updated with config when available)
 reddit = None
 
-# Redefine the actual function (replacing the forward declaration)
+
 def initialize_reddit_client():
     """Initialize or update Reddit client with current config."""
     global reddit
@@ -545,10 +516,56 @@ def reddit_research(research_request: str) -> List[Message]:
     ]
 
 
-# FastMCP will handle the transport selection when using 'fastmcp run'
-# The middleware will handle Smithery config extraction for HTTP transport
+def main():
+    """Main entry point for the server."""
+    transport_mode = os.environ.get("TRANSPORT", "stdio")
+    
+    if transport_mode == "http":
+        # HTTP mode for Smithery deployment
+        print("Reddit MCP Server starting in HTTP mode...", flush=True)
+        
+        # Get the Starlette app from FastMCP
+        app = mcp.streamable_http_app()
+        
+        # Add CORS middleware for browser compatibility
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_headers=["*"],
+            expose_headers=["mcp-session-id", "mcp-protocol-version"],
+            max_age=86400,
+        )
+        
+        # Apply custom middleware for Smithery config extraction
+        app = SmitheryConfigMiddleware(app, handle_config)
+        
+        # Get port from environment variable
+        port = int(os.environ.get("PORT", 8080))
+        print(f"Listening on port {port}")
+        
+        # Run with uvicorn
+        uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    else:
+        # STDIO mode for local development
+        print("Reddit MCP Server starting in STDIO mode...", flush=True)
+        
+        # For STDIO, try to get config from environment variables
+        env_config = {}
+        if os.getenv("REDDIT_CLIENT_ID"):
+            env_config["REDDIT_CLIENT_ID"] = os.getenv("REDDIT_CLIENT_ID")
+        if os.getenv("REDDIT_CLIENT_SECRET"):
+            env_config["REDDIT_CLIENT_SECRET"] = os.getenv("REDDIT_CLIENT_SECRET")
+        if os.getenv("REDDIT_USER_AGENT"):
+            env_config["REDDIT_USER_AGENT"] = os.getenv("REDDIT_USER_AGENT")
+        
+        if env_config:
+            handle_config(env_config)
+        
+        # Run with stdio transport
+        mcp.run()
+
+
 if __name__ == "__main__":
-    print("Reddit MCP Server starting...", flush=True)
-    # Let FastMCP handle everything - it will use the appropriate transport
-    # based on command line arguments or environment variables
-    mcp.run()
+    main()
