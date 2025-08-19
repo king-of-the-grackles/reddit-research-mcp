@@ -525,7 +525,7 @@ def main():
         print("Reddit MCP Server starting in HTTP mode...", flush=True)
         
         # Get the Starlette app from FastMCP
-        app = mcp.streamable_http_app()
+        app = mcp.http_app()
         
         # Add CORS middleware for browser compatibility
         app.add_middleware(
