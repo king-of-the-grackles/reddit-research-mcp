@@ -519,6 +519,8 @@ def main():
             allow_credentials=True,
             allow_methods=["GET", "POST", "OPTIONS"],
             allow_headers=["*"],
+            expose_headers=["mcp-session-id", "mcp-protocol-version"],
+            max_age=86400,
         )
         
         # Add custom middleware to extract Smithery config from query params
