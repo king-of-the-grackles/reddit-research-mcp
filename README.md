@@ -1,177 +1,261 @@
-# Reddit MCP Server
+# 🔍 Reddit Research MCP Server
 
-MCP server for Reddit access with semantic search and batch operations. Built with FastMCP for efficient LLM integration.
+> **Transform Reddit into your personal research assistant** - Semantic search across 20,000+ communities with AI-powered analysis
 
-## Features
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![FastMCP](https://img.shields.io/badge/Built%20with-FastMCP-orange.svg)](https://github.com/jlowin/fastmcp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-- **Semantic Discovery**: Find 8-15 relevant subreddits using vector search
-- **Batch Operations**: Fetch from multiple subreddits in one call (70% fewer API calls)
-- **Three-Layer Architecture**: Discovery → Requirements → Execution workflow
-- **Full Citations**: Reddit URLs included in all results
-- **Deep Analysis**: Complete comment trees for thorough research
+---
 
-## How It Works
+## ✨ Why This Server?
 
-### Subreddit Discovery with Vector Search
-Reddit's native subreddit discovery API is limited and often returns irrelevant results. To solve this, we've indexed all active subreddits with 5,000+ subscribers into a vector database using ChromaDB. This enables semantic search that understands context and relationships between topics, finding relevant communities that keyword search would miss.
+**Stop manually searching through Reddit.** This MCP server transforms Reddit into a structured research tool that:
 
-### Batch Operations
-Instead of making sequential API calls to fetch from multiple subreddits, `fetch_multiple` retrieves posts from up to 15 subreddits in a single operation. This reduces API calls by 70% and significantly improves response times for comprehensive research tasks.
+- 🎯 **Discovers relevant communities you didn't know existed** - Semantic search across 20,000+ indexed subreddits
+- ⚡ **Reduces API calls by 70%** - Batch operations fetch from 15 subreddits simultaneously  
+- 🤖 **Automates comprehensive research** - Built-in Claude Code agent analyzes 100+ posts and comments
+- 📊 **Produces professional reports** - Markdown output with full citations and sentiment analysis
+- 🔗 **Provides complete traceability** - Every insight linked to its Reddit source
 
-### Three-Layer Architecture
-The server guides LLMs through a structured workflow: Discovery finds relevant resources, Requirements provides parameter schemas and validation, and Execution performs the actual Reddit operations. This design prevents errors and ensures LLMs use the API efficiently.
+---
 
-## Claude Code Research Agent
-
-This project includes a specialized Claude Code agent for automated Reddit research. The agent conducts comprehensive community analysis across multiple subreddits and produces detailed markdown reports with full citations.
-
-**What it does:**
-- Automatically discovers and analyzes 10+ relevant subreddits
-- Gathers 100+ comments from high-engagement discussions
-- Synthesizes findings into Obsidian-compatible markdown reports
-- Includes clickable Reddit URLs for every citation
-- Tracks sentiment, temporal trends, and community consensus
-
-**Usage in Claude Code:**
-```bash
-# After MCP server is connected, simply ask:
-"Research [topic] on Reddit using the research agent"
-```
-
-The agent handles the entire workflow automatically and saves the report to `/reports/[topic]-YYYY-MM-DD.md`. See [agent configuration](src/.claude/agents/reddit-research-agent.md) for full capabilities.
-
-## What Makes This Server Unique?
-
-This server is specifically designed for **comprehensive Reddit research** rather than just browsing. Here's what sets it apart:
-
-### 🔍 Semantic Subreddit Discovery
-Most Reddit tools require you to know which subreddits to search. This server has **indexed 20,000+ active subreddits** into a vector database, enabling semantic search that finds relevant communities you didn't know existed. Ask about any topic and discover 8-15 related subreddits automatically.
-
-### ⚡ Efficient Batch Operations
-The `fetch_multiple` operation retrieves posts from up to 15 subreddits in a single call, reducing API calls by 70% compared to sequential fetching. This means faster results and fewer rate limit issues.
-
-### 🎯 Research-Optimized Workflow
-The three-layer architecture (Discovery → Requirements → Execution) guides LLMs through complex research tasks, preventing common errors and ensuring comprehensive coverage across multiple communities.
-
-### 📊 Automated Analysis & Reporting
-Includes a Claude Code agent that automatically conducts research across 10+ subreddits, analyzes 100+ comments, and produces professional markdown reports with full citations - turning hours of manual work into a single command.
-
-## Quick Start
+## 🚀 Quick Start (60 Seconds)
 
 ### Prerequisites
-- Python 3.11+
-- Reddit API credentials ([Get them here](https://www.reddit.com/prefs/apps))
+- 🐍 Python 3.11+
+- 🔑 Reddit API credentials ([Get them here](https://www.reddit.com/prefs/apps) - takes 2 minutes)
 
-### Setup
+### Installation
 
-1. Clone and install:
 ```bash
+# 1. Clone the repository
 git clone https://github.com/king-of-the-grackles/reddit-research-mcp.git
 cd reddit-research-mcp
+
+# 2. Install dependencies
 pip install uv
 uv sync
-```
 
-2. Configure `.env`:
-```env
-REDDIT_CLIENT_ID=your_client_id_here
-REDDIT_CLIENT_SECRET=your_client_secret_here
-REDDIT_USER_AGENT=RedditMCP/1.0
-```
+# 3. Add your Reddit credentials
+cp .env.sample .env
+# Edit .env with your credentials
 
-3. Run server:
-```bash
+# 4. Run the server
 uv run src/server.py
 ```
 
-### Claude Code Integration
+---
 
-Add to Claude Code:
-```bash
-claude mcp add -s user -t stdio reddit-mcp-poc uv run fastmcp run <FULL_PATH>/src/server.py
+## 🎨 Key Features
+
+### 🔍 **Semantic Subreddit Discovery**
+Unlike Reddit's limited native search, our vector database indexes 20,000+ active communities, understanding context and relationships to find relevant subreddits you never knew existed.
+
+```python
+# Discover communities about "sustainable living"
+# Returns: ZeroWaste, BuyItForLife, Permaculture, SimpleLiving, and 10+ more
 ```
 
-Verify connection:
+### ⚡ **Intelligent Batch Operations**
+Fetch posts from up to 15 subreddits in a single API call - 70% more efficient than sequential requests.
+
+```python
+# One call instead of fifteen
+execute_operation("fetch_multiple", {
+    "subreddit_names": ["MachineLearning", "artificial", "deeplearning", ...],
+    "limit_per_subreddit": 10
+})
+```
+
+### 🤖 **Automated Research Agent**
+A specialized Claude Code agent that conducts end-to-end research:
+
 ```bash
+# In Claude Code, simply say:
+"Research cryptocurrency regulation on Reddit"
+
+# The agent automatically:
+# → Discovers 15+ relevant crypto communities
+# → Analyzes 100+ posts and comments
+# → Generates a comprehensive report with citations
+# → Saves to /reports/cryptocurrency-regulation-2025-01-19.md
+```
+
+### 🏗️ **Three-Layer Architecture**
+Guides LLMs through complex operations with built-in error prevention:
+
+1. **Discovery** → Find relevant resources
+2. **Requirements** → Validate parameters
+3. **Execution** → Perform operations safely
+
+---
+
+## 📖 How to Use
+
+### 🔌 Claude Code Integration
+
+```bash
+# Add the server to Claude Code
+claude mcp add -s user -t stdio reddit-research-mcp \
+  uv run fastmcp run /path/to/reddit-research-mcp/src/server.py
+
+# Verify connection
 claude mcp list
 ```
 
-## Usage
+### 🛠️ Core Operations
 
-### Three-Layer Workflow
-
+#### Discover Communities
 ```python
-# 1. DISCOVERY - Find communities
-discover_operations()
-
-# 2. REQUIREMENTS - Get parameters (optional)
-get_operation_schema("fetch_multiple")
-
-# 3. EXECUTION - Fetch content
-execute_operation("fetch_multiple", {
-    "subreddit_names": ["MachineLearning", "artificial"],
-    "limit_per_subreddit": 8
-})
-```
-
-### Quick Operations
-
-```python
-# Search across Reddit
-execute_operation("search_all", {
-    "query": "AI ethics",
+# Find subreddits about any topic
+execute_operation("discover_subreddits", {
+    "topic": "machine learning",
     "limit": 15
 })
+```
 
-# Get comments for analysis
-execute_operation("fetch_comments", {
-    "submission_id": "abc123",
-    "comment_limit": 100
+#### Search Across Reddit
+```python
+# Search all of Reddit
+execute_operation("search_all", {
+    "query": "ChatGPT experiences",
+    "time_filter": "week",
+    "limit": 25
 })
 ```
 
-## Available Operations
-
-**Core Operations:**
-- `discover_subreddits` - Semantic search for communities
-- `search_all` - Search across Reddit
-- `search_subreddit` - Search within a community
-- `fetch_posts` - Get posts from one subreddit
-- `fetch_multiple` - Batch fetch from multiple subreddits
-- `fetch_comments` - Get full comment trees
-
-**MCP Resources:**
-- `reddit://popular-subreddits` - Top 25 subreddits
-- `reddit://subreddit/{name}/about` - Subreddit details
-- `reddit://server-info` - Server capabilities
-
-## Project Structure
-
-```
-reddit-mcp-poc/
-├── src/
-│   ├── server.py           # Main MCP server
-│   ├── config.py           # Reddit client setup
-│   ├── resources.py        # MCP resources
-│   └── tools/              
-│       ├── search.py       # Search operations
-│       ├── posts.py        # Post fetching
-│       ├── comments.py     # Comment retrieval
-│       ├── discover.py     # Subreddit discovery
-│       └── db/             # Vector search database
-├── tests/
-├── pyproject.toml
-└── .env
+#### Batch Fetch Posts
+```python
+# Get posts from multiple subreddits at once
+execute_operation("fetch_multiple", {
+    "subreddit_names": ["technology", "programming", "coding"],
+    "limit_per_subreddit": 10,
+    "time_filter": "day"
+})
 ```
 
-## Troubleshooting
+#### Deep Dive with Comments
+```python
+# Analyze full discussions
+execute_operation("fetch_comments", {
+    "submission_id": "abc123",
+    "comment_limit": 200,
+    "sort": "best"
+})
+```
+
+---
+
+## 🗂️ Project Structure
+
+```
+reddit-research-mcp/
+├── 📁 src/
+│   ├── 🚀 server.py          # FastMCP server
+│   ├── 🔧 config.py          # Reddit client configuration
+│   ├── 📚 resources.py       # MCP resources
+│   └── 🛠️ tools/
+│       ├── 🔍 search.py      # Search operations
+│       ├── 📝 posts.py       # Post fetching
+│       ├── 💬 comments.py    # Comment retrieval
+│       ├── 🎯 discover.py    # Subreddit discovery
+│       └── 🗄️ db/           # Vector database (20k+ subreddits)
+├── 📊 reports/               # Generated research reports
+├── 📋 specs/                 # Architecture documentation
+└── 🔐 .env                  # Your credentials (git-ignored)
+```
+
+---
+
+## 🎯 Use Cases
+
+### 📊 Market Research
+```bash
+"Analyze consumer sentiment about electric vehicles across Reddit"
+```
+
+### 🔬 Academic Research
+```bash
+"Research how Reddit communities discuss climate change solutions"
+```
+
+### 💼 Competitive Analysis
+```bash
+"What are developers saying about Next.js vs Remix?"
+```
+
+### 📈 Trend Discovery
+```bash
+"Find emerging AI tools being discussed on Reddit this week"
+```
+
+---
+
+## 🔧 Advanced Configuration
+
+### Environment Variables
+```env
+# Required
+REDDIT_CLIENT_ID=your_client_id
+REDDIT_CLIENT_SECRET=your_secret
+
+# Optional
+REDDIT_USER_AGENT=YourApp/1.0  # Customize user agent
+```
+
+### MCP Resources
+
+Access built-in resources for common tasks:
+
+- 📊 `reddit://popular-subreddits` - Top 25 most active communities
+- ℹ️ `reddit://subreddit/{name}/about` - Detailed subreddit information
+- 📖 `reddit://server-info` - Complete server documentation
+
+---
+
+## 🐛 Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
-| "Reddit API credentials not found" | Check `.env` file exists with valid credentials |
-| Rate limit errors | Wait a few minutes; handled automatically |
-| "Subreddit not found" | Verify subreddit name (without r/ prefix) |
+| 🔴 "Reddit API credentials not found" | Ensure `.env` file exists with valid credentials |
+| ⏱️ Rate limit errors | Automatic retry after 60 seconds |
+| 🚫 "Subreddit not found" | Check spelling (use "technology" not "r/technology") |
+| 🔌 MCP connection failed | Verify full path in Claude Code command |
 
-## License
+---
 
-MIT
+## 📚 Documentation
+
+- 📖 [Architecture Overview](specs/agentic-discovery-architecture.md)
+- 🤖 [Research Agent Details](specs/reddit-research-agent-spec.md)
+- 🔍 [Deep Research Architecture](specs/deep-research-reddit-architecture.md)
+- 🛠️ [API Reference](ai-docs/reddit-mcp-tools-reference.md)
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! This project uses:
+- 🐍 Python 3.11+ with type hints
+- 📦 uv for package management
+- 🚀 FastMCP for the server framework
+- 🗄️ ChromaDB for vector search
+
+---
+
+## 📄 License
+
+MIT License - See [LICENSE](LICENSE) file for details
+
+---
+
+<div align="center">
+  
+**Built with ❤️ for Reddit researchers and data enthusiasts**
+
+[Report Issues](https://github.com/king-of-the-grackles/reddit-research-mcp/issues) • 
+[Request Features](https://github.com/king-of-the-grackles/reddit-research-mcp/issues) • 
+[Star on GitHub](https://github.com/king-of-the-grackles/reddit-research-mcp)
+
+</div>
