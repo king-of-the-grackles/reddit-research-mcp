@@ -206,11 +206,9 @@ REDDIT_USER_AGENT=YourApp/1.0  # Customize user agent
 
 ### MCP Resources
 
-Access built-in resources for common tasks:
+Access comprehensive server documentation:
 
-- 📊 `reddit://popular-subreddits` - Top 25 most active communities
-- ℹ️ `reddit://subreddit/{name}/about` - Detailed subreddit information
-- 📖 `reddit://server-info` - Complete server documentation
+- 📖 `reddit://server-info` - Complete server capabilities, tools, prompts, and usage examples
 
 ---
 

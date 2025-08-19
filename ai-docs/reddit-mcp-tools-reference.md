@@ -209,24 +209,15 @@ These tools can be used directly but the three-layer architecture is recommended
 
 ---
 
-## 📚 MCP Resources (Static Data)
-
-### `reddit://popular-subreddits`
-**List of 25 most popular subreddits**
-- Returns curated list of major Reddit communities
-- Useful for general exploration and content discovery
-
-### `reddit://subreddit/{name}/about`
-**Detailed subreddit information**
-- Replace `{name}` with subreddit name (e.g., `reddit://subreddit/Python/about`)
-- Returns rules, description, member count, and community guidelines
-- Essential for understanding community context before posting
+## 📚 MCP Resources
 
 ### `reddit://server-info`
 **Complete server capabilities and documentation**
-- Comprehensive overview of all server features
-- Usage guidelines and best practices
-- Performance optimization tips
+- Comprehensive overview of all tools, prompts, and operations
+- Usage guidelines with automated and manual workflows
+- Performance optimization tips and token usage estimates
+- Version information and changelog
+- Real-time rate limit status
 
 ---
 

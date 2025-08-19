@@ -1,0 +1,65 @@
+name: reddit-research-mcp
+version: 0.4.0
+description: Transform Reddit into your personal research assistant - Semantic search across 20,000+ communities
+author: Reddit Research MCP Team
+license: MIT
+homepage: https://github.com/king-of-the-grackles/reddit-research-mcp
+
+# Configuration schema for Smithery deployment
+config:
+  schema:
+    type: object
+    properties:
+      REDDIT_CLIENT_ID:
+        type: string
+        description: Reddit API client ID (get from https://www.reddit.com/prefs/apps)
+        required: true
+        pattern: "^[a-zA-Z0-9_-]+$"
+      REDDIT_CLIENT_SECRET:
+        type: string
+        description: Reddit API client secret
+        required: true
+        secret: true  # Mark as sensitive - will be hidden in UI
+      REDDIT_USER_AGENT:
+        type: string
+        description: User agent string for Reddit API requests
+        default: "RedditResearchMCP/1.0 (Smithery)"
+        required: false
+    required:
+      - REDDIT_CLIENT_ID
+      - REDDIT_CLIENT_SECRET
+
+# MCP server capabilities
+capabilities:
+  tools:
+    - discover_operations
+    - get_operation_schema  
+    - execute_operation
+  prompts:
+    - reddit_research
+  resources:
+    - reddit://server-info
+
+# Deployment settings
+deployment:
+  type: custom
+  dockerfile: Dockerfile
+  port: 8080
+  healthcheck:
+    path: /health
+    interval: 30s
+  
+# Resource requirements
+resources:
+  memory: 512Mi  # Includes vector database
+  cpu: 0.5
+
+# Tags for discovery
+tags:
+  - reddit
+  - research
+  - semantic-search
+  - data-analysis
+  - social-media
+  - mcp
+  - fastmcp

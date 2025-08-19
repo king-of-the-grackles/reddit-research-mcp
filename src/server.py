@@ -1,7 +1,9 @@
 from fastmcp import FastMCP
+from fastmcp.prompts import Message
 from typing import Optional, Literal, List, Union, Dict, Any, Annotated
 import sys
 from pathlib import Path
+from datetime import datetime
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -344,9 +346,161 @@ def suggest_recovery(operation_id: str, error: Exception) -> str:
         return "Check parameters match schema from get_operation_schema"
 
 
+# Research Workflow Prompt Template
+RESEARCH_WORKFLOW_PROMPT = """
+You are conducting comprehensive Reddit research based on this request: "{research_request}"
+
+## WORKFLOW TO FOLLOW:
+
+### PHASE 1: DISCOVERY
+1. First, call discover_operations() to see available operations
+2. Then call get_operation_schema("discover_subreddits") to understand the parameters
+3. Extract the key topic/question from the research request and execute:
+   execute_operation("discover_subreddits", {{"query": "<topic from request>", "limit": 15}})
+4. Note the confidence scores for each discovered subreddit
+
+### PHASE 2: STRATEGY SELECTION
+Based on confidence scores from discovery:
+- **High confidence (>0.7)**: Focus on top 5-8 most relevant subreddits
+- **Medium confidence (0.4-0.7)**: Cast wider net with 10-12 subreddits  
+- **Low confidence (<0.4)**: Refine search terms and retry discovery
+
+### PHASE 3: GATHER POSTS
+Use batch operation for efficiency:
+execute_operation("fetch_multiple", {{
+    "subreddit_names": [<list from discovery>],
+    "listing_type": "top",
+    "time_filter": "year",
+    "limit_per_subreddit": 10
+}})
+
+### PHASE 4: DEEP DIVE INTO DISCUSSIONS
+For posts with high engagement (10+ comments, 5+ upvotes):
+execute_operation("fetch_comments", {{
+    "submission_id": "<post_id>",
+    "comment_limit": 100,
+    "comment_sort": "best"
+}})
+
+Target: Analyze 100+ total comments across 10+ subreddits
+
+### PHASE 5: SYNTHESIZE FINDINGS
+
+Create a comprehensive report that directly addresses the research request:
+
+# Research Report: {research_request}
+*Generated: {timestamp}*
+
+## Executive Summary
+- Direct answer to the research question
+- Key findings with confidence levels
+- Coverage metrics: X subreddits, Y posts, Z comments analyzed
+
+## Communities Analyzed
+| Subreddit | Subscribers | Relevance Score | Posts Analyzed | Key Insights |
+|-----------|------------|-----------------|----------------|--------------|
+| [data]    | [count]    | [0.0-1.0]      | [count]        | [summary]    |
+
+## Key Findings
+
+### [Finding that directly addresses the research request]
+**Community Consensus**: [Strong/Moderate/Split/Emerging]
+
+Evidence from Reddit:
+- u/[username] in r/[subreddit] stated: "exact quote" [↑450](https://reddit.com/r/subreddit/comments/abc123/)
+- Discussion with 200+ comments shows... [link](url)
+- Highly awarded post argues... [↑2.3k, Gold×3](url)
+
+### [Additional relevant findings...]
+[Continue with 2-4 more key findings that answer different aspects of the research request]
+
+## Temporal Trends
+- How perspectives have evolved over time
+- Recent shifts in community sentiment
+- Emerging viewpoints in the last 30 days
+
+## Notable Perspectives
+- Expert opinions (verified flairs, high karma users 10k+)
+- Contrarian views worth considering
+- Common misconceptions identified
+
+## Data Quality Metrics
+- Total subreddits analyzed: [count]
+- Total posts reviewed: [count]
+- Total comments analyzed: [count]  
+- Unique contributors: [count]
+- Date range: [oldest] to [newest]
+- Average post score: [score]
+- High-karma contributors (10k+): [count]
+
+## Limitations
+- Geographic/language bias (primarily English-speaking communities)
+- Temporal coverage (data from [date range])
+- Communities not represented in analysis
+
+---
+*Research methodology: Semantic discovery across 20,000+ indexed subreddits, followed by deep analysis of high-engagement discussions*
+
+CRITICAL REQUIREMENTS:
+- Never fabricate Reddit content - only cite actual posts/comments from the data
+- Every claim must link to its Reddit source with a clickable URL
+- Include upvote counts and awards for credibility assessment
+- Note when content is [deleted] or [removed]
+- Track temporal context (when was this posted?)
+- Answer the specific research request - don't just summarize content
+"""
+
+
+@mcp.prompt(
+    name="reddit_research",
+    description="Conduct comprehensive Reddit research on any topic or question",
+    tags={"research", "analysis", "comprehensive"}
+)
+def reddit_research(research_request: str) -> List[Message]:
+    """
+    Guides comprehensive Reddit research based on a natural language request.
+    
+    Args:
+        research_request: Natural language description of what to research
+                         Examples: "How do people feel about remote work?",
+                                 "Best practices for Python async programming",
+                                 "Community sentiment on electric vehicles"
+    
+    Returns:
+        Structured messages guiding the LLM through the complete research workflow
+    """
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
+    
+    return [
+        Message(
+            role="system", 
+            content=RESEARCH_WORKFLOW_PROMPT.format(
+                research_request=research_request,
+                timestamp=timestamp
+            )
+        ),
+        Message(
+            role="user",
+            content=f"Please conduct comprehensive Reddit research to answer: {research_request}"
+        )
+    ]
+
+
 def main():
     """Main entry point for the Reddit MCP server."""
-    mcp.run()
+    import os
+    
+    # Support both local (stdio) and Smithery (http) modes
+    transport = os.environ.get("MCP_TRANSPORT", "stdio")
+    port = int(os.environ.get("PORT", 8080))
+    
+    if transport == "streamable-http":
+        # For Smithery deployment - use stateless for better scalability
+        print(f"Starting Reddit MCP server on port {port} with HTTP transport...")
+        mcp.run(transport="streamable-http", port=port)
+    else:
+        # For local development with stdio
+        mcp.run()
 
 
 if __name__ == "__main__":

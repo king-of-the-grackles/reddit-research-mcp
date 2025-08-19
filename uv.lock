@@ -1357,7 +1357,7 @@ wheels = [
 ]
 
 [[package]]
-name = "reddit-mcp-poc"
+name = "reddit-research-mcp"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

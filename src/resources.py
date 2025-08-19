@@ -1,97 +1,18 @@
-"""Reddit MCP Resources - Static and cacheable data endpoints."""
+"""Reddit MCP Resources - Server information endpoint."""
 
-from typing import Dict, List, Any
+from typing import Dict, Any
 import praw
 
 
 def register_resources(mcp, reddit: praw.Reddit) -> None:
-    """Register all Reddit resources with the MCP server."""
-    
-    @mcp.resource("reddit://popular-subreddits")
-    def get_popular_subreddits() -> Dict[str, Any]:
-        """
-        Get list of 25 most popular subreddits.
-        
-        Returns a list of popular subreddits with their subscriber counts.
-        This data is relatively static and ideal for caching.
-        """
-        try:
-            subreddits = []
-            for subreddit in reddit.subreddits.popular(limit=25):
-                subreddits.append({
-                    "name": subreddit.display_name,
-                    "title": subreddit.title,
-                    "subscribers": subreddit.subscribers,
-                    "description": subreddit.public_description[:200] if subreddit.public_description else "",
-                    "url": f"https://reddit.com/r/{subreddit.display_name}"
-                })
-            
-            return {
-                "count": len(subreddits),
-                "subreddits": subreddits
-            }
-        except Exception as e:
-            return {
-                "error": f"Failed to fetch popular subreddits: {str(e)}",
-                "subreddits": []
-            }
-    
-    @mcp.resource("reddit://subreddit/{name}/about")
-    def get_subreddit_about(name: str) -> Dict[str, Any]:
-        """
-        Get detailed information about a specific subreddit.
-        
-        Args:
-            name: The subreddit name (without r/ prefix)
-            
-        Returns information including description, rules, and statistics.
-        """
-        try:
-            subreddit = reddit.subreddit(name)
-            
-            # Fetch basic info
-            info = {
-                "name": subreddit.display_name,
-                "title": subreddit.title,
-                "description": subreddit.public_description,
-                "subscribers": subreddit.subscribers,
-                "active_users": subreddit.active_user_count,
-                "created_utc": subreddit.created_utc,
-                "over_18": subreddit.over18,
-                "url": f"https://reddit.com/r/{subreddit.display_name}"
-            }
-            
-            # Try to fetch rules
-            try:
-                rules = []
-                for rule in subreddit.rules:
-                    rules.append({
-                        "short_name": rule.short_name,
-                        "description": rule.description,
-                        "violation_reason": rule.violation_reason
-                    })
-                info["rules"] = rules
-            except:
-                info["rules"] = []
-            
-            return info
-            
-        except praw.exceptions.RedditAPIException as e:
-            return {
-                "error": f"Subreddit '{name}' not found or inaccessible",
-                "details": str(e)
-            }
-        except Exception as e:
-            return {
-                "error": f"Failed to fetch subreddit info: {str(e)}"
-            }
+    """Register server info resource with the MCP server."""
     
     @mcp.resource("reddit://server-info")
     def get_server_info() -> Dict[str, Any]:
         """
-        Get information about this Reddit MCP server's capabilities.
+        Get comprehensive information about the Reddit MCP server's capabilities.
         
-        Returns server version, available tools, and usage examples.
+        Returns server version, available tools, prompts, and usage examples.
         """
         # Try to get rate limit info from Reddit
         rate_limit_info = {}
@@ -109,13 +30,18 @@ def register_resources(mcp, reddit: praw.Reddit) -> None:
             }
         
         return {
-            "name": "Reddit MCP Server",
-            "version": "0.3.0",
-            "description": "A Model Context Protocol server for Reddit using three-layer architecture",
+            "name": "Reddit Research MCP Server",
+            "version": "0.4.0",
+            "description": "MCP server for comprehensive Reddit research with semantic search across 20,000+ indexed subreddits",
             "changelog": {
+                "0.4.0": [
+                    "Added reddit_research prompt for automated comprehensive research",
+                    "Streamlined resources to focus on server-info only",
+                    "Enhanced documentation for prompt-based workflows"
+                ],
                 "0.3.0": [
                     "Implemented three-layer architecture for clearer operation flow",
-                    "Removed search_all operation in favor of semantic discovery",
+                    "Added semantic subreddit discovery with vector search",
                     "Enhanced workflow guidance with confidence-based recommendations",
                     "Improved error recovery suggestions"
                 ],
@@ -131,6 +57,13 @@ def register_resources(mcp, reddit: praw.Reddit) -> None:
                 ]
             },
             "capabilities": {
+                "key_features": [
+                    "Semantic search across 20,000+ indexed subreddits",
+                    "Batch operations reducing API calls by 70%",
+                    "Automated research workflow via prompt",
+                    "Three-layer architecture for guided operations",
+                    "Comprehensive citation tracking with Reddit URLs"
+                ],
                 "architecture": {
                     "type": "Three-Layer Architecture",
                     "workflow": [
@@ -145,7 +78,7 @@ def register_resources(mcp, reddit: praw.Reddit) -> None:
                         "name": "discover_operations",
                         "layer": 1,
                         "description": "Discover available Reddit operations",
-                        "parameters": "None - just call discover_operations() to see what's available",
+                        "parameters": "None - just call discover_operations()",
                         "purpose": "Shows all available operations and recommended workflows"
                     },
                     {
@@ -169,90 +102,101 @@ def register_resources(mcp, reddit: praw.Reddit) -> None:
                         "purpose": "Actually performs the Reddit API calls"
                     }
                 ],
+                "prompts": [
+                    {
+                        "name": "reddit_research",
+                        "description": "Conduct comprehensive Reddit research on any topic or question",
+                        "parameters": {
+                            "research_request": "Natural language description of what to research (e.g., 'How do people feel about remote work?')"
+                        },
+                        "returns": "Structured workflow guiding complete research process",
+                        "output": "Comprehensive markdown report with citations and metrics",
+                        "usage": "Select prompt, provide research question, receive guided workflow"
+                    }
+                ],
                 "available_operations": {
-                    "discover_subreddits": "Find communities using semantic search",
+                    "discover_subreddits": "Find communities using semantic vector search (20,000+ indexed)",
                     "search_subreddit": "Search within a specific community",
                     "fetch_posts": "Get posts from one subreddit",
                     "fetch_multiple": "Batch fetch from multiple subreddits (70% more efficient)",
-                    "fetch_comments": "Get complete comment tree for analysis"
+                    "fetch_comments": "Get complete comment tree for deep analysis"
                 },
                 "resources": [
                     {
-                        "uri": "reddit://popular-subreddits",
-                        "description": "List of 25 most popular subreddits",
-                        "cacheable": True,
-                        "refresh_interval": "24 hours recommended"
-                    },
-                    {
-                        "uri": "reddit://subreddit/{name}/about",
-                        "description": "Detailed information about a specific subreddit including rules",
-                        "cacheable": True,
-                        "refresh_interval": "1 hour recommended"
-                    },
-                    {
                         "uri": "reddit://server-info",
-                        "description": "Server capabilities, version, and usage information",
+                        "description": "Comprehensive server capabilities, version, and usage information",
                         "cacheable": False,
                         "always_current": True
                     }
                 ],
-                "total_tools": 3,
-                "total_operations": 5,
-                "total_resources": 3
+                "statistics": {
+                    "total_tools": 3,
+                    "total_prompts": 1,
+                    "total_operations": 5,
+                    "total_resources": 1,
+                    "indexed_subreddits": "20,000+"
+                }
             },
             "usage_examples": {
-                "complete_workflow": [
-                    "Step 1: discover_operations()",
-                    "Step 2: get_operation_schema('discover_subreddits')",
-                    "Step 3: execute_operation('discover_subreddits', {'query': 'python', 'limit': 10})"
-                ],
-                "research_workflow": [
-                    "1. discover_operations() - See what's available",
-                    "2. get_operation_schema('discover_subreddits') - Get requirements",
-                    "3. execute_operation('discover_subreddits', {'query': 'texas redistricting'})",
-                    "4. get_operation_schema('fetch_multiple') - Get batch fetch requirements",
-                    "5. execute_operation('fetch_multiple', {'subreddit_names': ['texas', 'politics']})",
-                    "6. get_operation_schema('fetch_comments') - Get comment fetch requirements",
-                    "7. execute_operation('fetch_comments', {'submission_id': '1abc234'})"
-                ],
-                "targeted_search": [
-                    "1. discover_operations()",
-                    "2. get_operation_schema('discover_subreddits')",
-                    "3. execute_operation('discover_subreddits', {'query': 'machine learning'})",
-                    "4. get_operation_schema('search_subreddit')",
-                    "5. execute_operation('search_subreddit', {'subreddit_name': 'MachineLearning', 'query': 'transformers'})"
-                ]
-            },
-            "performance_tips": [
-                "Always follow the three-layer workflow: discover → schema → execute",
-                "Use fetch_multiple operation for 2+ subreddits (70% fewer API calls)",
-                "Single vector search in discover_subreddits finds all relevant communities",
-                "Use confidence scores to determine workflow (>0.7 = high confidence)",
-                "Cache resource responses when appropriate (popular-subreddits, subreddit/about)"
-            ],
-            "workflow_guidance": {
-                "starting_research": {
-                    "description": "For any new topic, always start with the three layers",
+                "automated_research": {
+                    "description": "Use the reddit_research prompt for complete automated workflow",
                     "steps": [
-                        "1. discover_operations() - No parameters needed",
-                        "2. get_operation_schema('discover_subreddits')",
-                        "3. execute_operation('discover_subreddits', {'query': 'your_topic'})"
+                        "1. Select the 'reddit_research' prompt in your MCP client",
+                        "2. Provide your research question: 'What are the best practices for React development?'",
+                        "3. The prompt guides the LLM through discovery, gathering, analysis, and reporting",
+                        "4. Receive comprehensive markdown report with citations"
                     ]
                 },
-                "confidence_based_workflow": {
-                    "high_confidence": "If avg confidence > 0.7: Use fetch_multiple with top communities",
-                    "medium_confidence": "If avg confidence 0.4-0.7: Combine fetch_multiple and search_subreddit",
-                    "low_confidence": "If avg confidence < 0.4: Try different search terms"
+                "manual_workflow": {
+                    "description": "Step-by-step manual research using the three-layer architecture",
+                    "steps": [
+                        "1. discover_operations() - See what's available",
+                        "2. get_operation_schema('discover_subreddits') - Get requirements",
+                        "3. execute_operation('discover_subreddits', {'query': 'machine learning', 'limit': 15})",
+                        "4. get_operation_schema('fetch_multiple') - Get batch fetch requirements",
+                        "5. execute_operation('fetch_multiple', {'subreddit_names': [...], 'limit_per_subreddit': 10})",
+                        "6. get_operation_schema('fetch_comments') - Get comment requirements",
+                        "7. execute_operation('fetch_comments', {'submission_id': 'abc123', 'comment_limit': 100})"
+                    ]
+                },
+                "targeted_search": {
+                    "description": "Find specific content in known communities",
+                    "steps": [
+                        "1. discover_operations()",
+                        "2. get_operation_schema('search_subreddit')",
+                        "3. execute_operation('search_subreddit', {'subreddit_name': 'Python', 'query': 'async', 'limit': 20})"
+                    ]
+                }
+            },
+            "performance_tips": [
+                "Use the reddit_research prompt for automated comprehensive research",
+                "Always follow the three-layer workflow for manual operations",
+                "Use fetch_multiple for 2+ subreddits (70% fewer API calls)",
+                "Single semantic search finds all relevant communities",
+                "Use confidence scores to guide strategy (>0.7 = high confidence)",
+                "Expect ~15-20K tokens for comprehensive research"
+            ],
+            "workflow_guidance": {
+                "confidence_based_strategy": {
+                    "high_confidence": "Scores > 0.7: Focus on top 5-8 subreddits",
+                    "medium_confidence": "Scores 0.4-0.7: Cast wider net with 10-12 subreddits",
+                    "low_confidence": "Scores < 0.4: Refine search terms and retry"
+                },
+                "research_depth": {
+                    "minimum_coverage": "10+ threads, 100+ comments, 3+ subreddits",
+                    "quality_thresholds": "Posts: 5+ upvotes, Comments: 2+ upvotes",
+                    "author_credibility": "Prioritize 100+ karma for key insights"
                 },
                 "token_optimization": {
-                    "discover_subreddits": "Single semantic search (~1-2K tokens)",
-                    "fetch_multiple": "Batch fetch (~500-1000 tokens per subreddit)",
-                    "fetch_comments": "Deep analysis (~2-5K tokens per post with comments)"
+                    "discover_subreddits": "~1-2K tokens for semantic search",
+                    "fetch_multiple": "~500-1000 tokens per subreddit",
+                    "fetch_comments": "~2-5K tokens per post with comments",
+                    "full_research": "~15-20K tokens for comprehensive analysis"
                 }
             },
             "rate_limiting": {
                 "handler": "PRAW automatic rate limit handling",
-                "strategy": "Exponential backoff with 5-minute cooldown",
+                "strategy": "Exponential backoff with retry",
                 "current_status": rate_limit_info
             },
             "authentication": {
@@ -260,15 +204,9 @@ def register_resources(mcp, reddit: praw.Reddit) -> None:
                 "scope": "Read-only access",
                 "capabilities": "Search, browse, and read public content"
             },
-            "api_efficiency": {
-                "batch_operations": [
-                    "discover_subreddits_tool supports batch queries",
-                    "fetch_multiple_subreddits_tool fetches from multiple subreddits at once"
-                ],
-                "caching_recommendations": [
-                    "Cache popular-subreddits for 24 hours",
-                    "Cache subreddit/about for 1 hour",
-                    "Search results can be cached for 5-15 minutes depending on sort type"
-                ]
+            "support": {
+                "repository": "https://github.com/king-of-the-grackles/reddit-research-mcp",
+                "issues": "https://github.com/king-of-the-grackles/reddit-research-mcp/issues",
+                "documentation": "See README.md and specs/ directory for architecture details"
             }
         }
