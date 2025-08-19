@@ -11,6 +11,8 @@ dependencies = [
     "openai-agents>=0.2.8",
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
+    "starlette>=0.32.0",
+    "uvicorn>=0.30.0",
 ]
 
 [project.optional-dependencies]

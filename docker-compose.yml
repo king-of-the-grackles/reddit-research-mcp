@@ -6,7 +6,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - MCP_TRANSPORT=streamable-http
+      - TRANSPORT=http
       - PORT=8080
       # Add your Reddit API credentials here for testing
       # Or pass them as query parameters in the request

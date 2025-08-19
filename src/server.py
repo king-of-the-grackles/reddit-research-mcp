@@ -2,6 +2,7 @@ from fastmcp import FastMCP
 from fastmcp.prompts import Message
 from typing import Optional, Literal, List, Union, Dict, Any, Annotated
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 
@@ -488,18 +489,47 @@ def reddit_research(research_request: str) -> List[Message]:
 
 def main():
     """Main entry point for the Reddit MCP server."""
-    import os
+    # Check transport mode from environment
+    transport = os.environ.get("TRANSPORT", "stdio")
     
-    # Support both local (stdio) and Smithery (http) modes
-    transport = os.environ.get("MCP_TRANSPORT", "stdio")
-    port = int(os.environ.get("PORT", 8080))
-    
-    if transport == "streamable-http":
-        # For Smithery deployment - use stateless for better scalability
+    if transport == "http":
+        # HTTP mode for Smithery deployment
+        from starlette.middleware.cors import CORSMiddleware
+        import uvicorn
+        
+        # Get the HTTP app from FastMCP
+        app = mcp.streamable_http_app()
+        
+        # Add CORS middleware for browser compatibility
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_headers=["*"],
+        )
+        
+        # Add custom middleware to extract Smithery config from query params
+        @app.middleware("http")
+        async def extract_smithery_config(request, call_next):
+            """Extract configuration from query parameters for Smithery."""
+            if request.method in ["POST", "GET"]:
+                # Store query params as config for tools to access
+                config = {}
+                for key, value in request.query_params.items():
+                    config[key] = value
+                # Store in app state for access by tools
+                request.app.state.smithery_config = config
+            response = await call_next(request)
+            return response
+        
+        # Run with uvicorn
+        port = int(os.environ.get("PORT", 8080))
         print(f"Starting Reddit MCP server on port {port} with HTTP transport...")
-        mcp.run(transport="streamable-http", port=port)
+        uvicorn.run(app, host="0.0.0.0", port=port)
     else:
-        # For local development with stdio
+        # Standard stdio mode for local development
+        print("Starting Reddit MCP server with STDIO transport...")
         mcp.run()
 
 

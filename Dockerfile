@@ -1,38 +1,44 @@
-FROM python:3.11-slim
+FROM ghcr.io/astral-sh/uv:python3.12-alpine
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# Enable bytecode compilation for better performance
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
 
-# Install uv for faster dependency management
-RUN pip install uv
+# Install system dependencies if needed
+RUN apk add --no-cache gcc musl-dev python3-dev
 
-# Copy project files
+# Copy dependency files first for better caching
 COPY pyproject.toml .
+
+# Install dependencies (using cache mount for efficiency)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
+
+# Copy project source code
 COPY src/ ./src/
 
 # Copy the vector database (20k+ indexed subreddits)
-# This is essential for semantic search functionality
 COPY src/tools/db/data/ ./src/tools/db/data/
 
-# Install Python dependencies
-RUN uv sync --frozen --no-dev
+# Install the project itself
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
-# Set environment variables for Smithery deployment
-ENV MCP_TRANSPORT=streamable-http
+# Set up environment paths
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app:$PYTHONPATH"
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
 
-# Expose the port
+# Default to stdio transport (override with TRANSPORT=http for Smithery)
+ENV TRANSPORT=stdio
+
+# Expose port for HTTP mode
 EXPOSE 8080
 
-# Health check endpoint
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health').read()" || exit 1
-
 # Run the server
-CMD ["uv", "run", "python", "-m", "src.server"]
+CMD ["python", "-m", "src.server"]

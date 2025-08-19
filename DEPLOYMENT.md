@@ -20,7 +20,7 @@ This guide explains how to deploy the Reddit Research MCP Server on Smithery.
 
 1. **Test the server locally with HTTP transport:**
 ```bash
-MCP_TRANSPORT=streamable-http PORT=8080 \
+TRANSPORT=http PORT=8080 \
 REDDIT_CLIENT_ID=your_id \
 REDDIT_CLIENT_SECRET=your_secret \
 uv run python -m src.server
