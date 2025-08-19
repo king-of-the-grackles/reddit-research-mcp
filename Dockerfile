@@ -11,15 +11,17 @@ ENV UV_LINK_MODE=copy
 RUN apk add --no-cache gcc musl-dev python3-dev
 
 # Copy dependency files first for better caching
-COPY pyproject.toml .
+COPY pyproject.toml uv.lock ./
 
 # Install dependencies (using cache mount for efficiency)
 RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project --no-dev
 
 # Copy project source code
 COPY src/ ./src/
+COPY README.md ./
 
 # Copy the vector database (20k+ indexed subreddits)
 COPY src/tools/db/data/ ./src/tools/db/data/
@@ -34,8 +36,8 @@ ENV PYTHONPATH="/app:$PYTHONPATH"
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
 
-# Default to stdio transport (override with TRANSPORT=http for Smithery)
-ENV TRANSPORT=stdio
+# Default to http transport for Smithery deployment
+ENV TRANSPORT=http
 
 # Expose port for HTTP mode
 EXPOSE 8080

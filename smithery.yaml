@@ -1,21 +1,32 @@
-name: reddit-research-mcp
-description: Transform Reddit into your personal research assistant - Semantic search across 20,000+ communities
-version: 0.4.0
+runtime: "container"
 
-# Configuration parameters that users need to provide
-config:
-  - REDDIT_CLIENT_ID
-  - REDDIT_CLIENT_SECRET
-  - REDDIT_USER_AGENT
+startCommand:
+  type: "http"
+  configSchema:
+    type: "object"
+    required: ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"]
+    properties:
+      REDDIT_CLIENT_ID:
+        type: "string"
+        title: "Reddit Client ID"
+        description: "Your Reddit application client ID from reddit.com/prefs/apps"
+      REDDIT_CLIENT_SECRET:
+        type: "string"
+        title: "Reddit Client Secret"
+        description: "Your Reddit application client secret"
+      REDDIT_USER_AGENT:
+        type: "string"
+        title: "Reddit User Agent"
+        description: "User agent string for Reddit API (e.g., 'MCP:reddit-research:v1.0')"
+  exampleConfig:
+    REDDIT_CLIENT_ID: "your_client_id_here"
+    REDDIT_CLIENT_SECRET: "your_client_secret_here"
+    REDDIT_USER_AGENT: "MCP:reddit-research:v1.0 (by /u/yourusername)"
 
-# MCP capabilities
-tools:
-  - discover_operations
-  - get_operation_schema
-  - execute_operation
+build:
+  dockerfile: "Dockerfile"
+  dockerBuildPath: "."
 
-prompts:
-  - reddit_research
-
-resources:
-  - reddit://server-info
+env:
+  TRANSPORT: "http"
+  PYTHONUNBUFFERED: "1"

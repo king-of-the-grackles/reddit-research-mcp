@@ -3,6 +3,8 @@ from fastmcp.prompts import Message
 from typing import Optional, Literal, List, Union, Dict, Any, Annotated
 import sys
 import os
+import base64
+import json
 from pathlib import Path
 from datetime import datetime
 
@@ -15,6 +17,9 @@ from src.tools.posts import fetch_subreddit_posts, fetch_multiple_subreddits
 from src.tools.comments import fetch_submission_with_comments
 from src.tools.discover import discover_subreddits
 from src.resources import register_resources
+
+# Global variable to store Smithery config
+smithery_config = {}
 
 # Initialize MCP server
 mcp = FastMCP("Reddit MCP", instructions="""
@@ -42,11 +47,18 @@ Reddit MCP Server - Three-Layer Architecture
 Quick Start: Read reddit://server-info for complete documentation.
 """)
 
-# Initialize Reddit client
-reddit = get_reddit_client()
+# Initialize Reddit client (will be updated with config when available)
+reddit = None
 
-# Register resources
-register_resources(mcp, reddit)
+def initialize_reddit_client():
+    """Initialize or update Reddit client with current config."""
+    global reddit
+    reddit = get_reddit_client(smithery_config if smithery_config else None)
+    # Register resources with the new client
+    register_resources(mcp, reddit)
+
+# Initialize with environment variables initially
+initialize_reddit_client()
 
 
 # Three-Layer Architecture Implementation
@@ -513,13 +525,30 @@ def main():
         @app.middleware("http")
         async def extract_smithery_config(request, call_next):
             """Extract configuration from query parameters for Smithery."""
+            global smithery_config
+            
             if request.method in ["POST", "GET"]:
-                # Store query params as config for tools to access
-                config = {}
-                for key, value in request.query_params.items():
-                    config[key] = value
-                # Store in app state for access by tools
-                request.app.state.smithery_config = config
+                # Smithery sends config as base64-encoded JSON in 'config' param
+                if 'config' in request.query_params:
+                    try:
+                        from urllib.parse import unquote
+                        config_b64 = unquote(request.query_params['config'])
+                        config_json = base64.b64decode(config_b64)
+                        config = json.loads(config_json)
+                        
+                        # Update global config
+                        smithery_config = config
+                        
+                        # Store in app state as well for backward compatibility
+                        request.app.state.smithery_config = config
+                        
+                        # Reinitialize Reddit client with new config
+                        initialize_reddit_client()
+                        
+                        print(f"Smithery config extracted: {list(config.keys())}")
+                    except Exception as e:
+                        print(f"Error parsing Smithery config: {e}")
+            
             response = await call_next(request)
             return response
         
