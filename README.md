@@ -1,334 +1,161 @@
 # Reddit MCP Server
 
-A Model Context Protocol (MCP) server that provides LLMs with comprehensive access to Reddit content through a **three-layer architecture** designed for thorough research and analysis. Built with FastMCP and PRAW for efficient deployment.
+MCP server for Reddit access with semantic search and batch operations. Built with FastMCP for efficient LLM integration.
 
-## ✨ Three-Layer Architecture
+## Features
 
-This server features a unique **three-layer architecture** that guides LLMs through comprehensive Reddit research:
+- **Semantic Discovery**: Find 8-15 relevant subreddits using vector search
+- **Batch Operations**: Fetch from multiple subreddits in one call (70% fewer API calls)
+- **Three-Layer Architecture**: Discovery → Requirements → Execution workflow
+- **Full Citations**: Reddit URLs included in all results
+- **Deep Analysis**: Complete comment trees for thorough research
 
-### **Layer 1: Discovery** (`discover_reddit_resources`)
-- Finds 8-15 relevant communities using multiple search strategies
-- Supports both "quick" and "comprehensive" discovery modes
-- Returns available operations and recommended workflows
+## How It Works
 
-### **Layer 2: Requirements** (`get_operation_requirements`) 
-- Provides detailed parameter schemas and validation rules
-- Context-aware suggestions based on your research needs
-- Clear guidance on when to use each operation
+### Subreddit Discovery with Vector Search
+Reddit's native subreddit discovery API is limited and often returns irrelevant results. To solve this, we've indexed all active subreddits with 5,000+ subscribers into a vector database using ChromaDB. This enables semantic search that understands context and relationships between topics, finding relevant communities that keyword search would miss.
 
-### **Layer 3: Execution** (`execute_reddit_operation`)
-- Validates parameters and executes Reddit operations
-- Comprehensive error handling with actionable hints
-- Returns structured results with detailed metadata
+### Batch Operations
+Instead of making sequential API calls to fetch from multiple subreddits, `fetch_multiple` retrieves posts from up to 15 subreddits in a single operation. This reduces API calls by 70% and significantly improves response times for comprehensive research tasks.
 
-## Key Features
+### Three-Layer Architecture
+The server guides LLMs through a structured workflow: Discovery finds relevant resources, Requirements provides parameter schemas and validation, and Execution performs the actual Reddit operations. This design prevents errors and ensures LLMs use the API efficiently.
 
-- **Multi-Community Coverage**: Discover and fetch from 8-15 subreddits in one workflow
-- **Intelligent Discovery**: Uses multiple search strategies for comprehensive coverage
-- **Citation Support**: Includes Reddit URLs in all results for proper attribution
-- **Efficiency Optimized**: Batch operations reduce API calls by 70%+
-- **Research-Focused**: Designed for thorough analysis with comment depth
-- **MCP Resources**: Access popular subreddits, subreddit info, and server capabilities
+## Claude Code Research Agent
+
+This project includes a specialized Claude Code agent for automated Reddit research. The agent conducts comprehensive community analysis across multiple subreddits and produces detailed markdown reports with full citations.
+
+**What it does:**
+- Automatically discovers and analyzes 10+ relevant subreddits
+- Gathers 100+ comments from high-engagement discussions
+- Synthesizes findings into Obsidian-compatible markdown reports
+- Includes clickable Reddit URLs for every citation
+- Tracks sentiment, temporal trends, and community consensus
+
+**Usage in Claude Code:**
+```bash
+# After MCP server is connected, simply ask:
+"Research [topic] on Reddit using the research agent"
+```
+
+The agent handles the entire workflow automatically and saves the report to `/reports/[topic]-YYYY-MM-DD.md`. See [agent configuration](src/.claude/agents/reddit-research-agent.md) for full capabilities.
 
 ## Quick Start
 
 ### Prerequisites
-
 - Python 3.11+
 - Reddit API credentials ([Get them here](https://www.reddit.com/prefs/apps))
-  1. Go to https://www.reddit.com/prefs/apps
-  2. Click "Create App" or "Create Another App"
-  3. Choose "script" as the app type
-  4. Note your `client_id` (under "personal use script") and `client_secret`
 
-### Installation
+### Setup
 
-1. Clone the repository:
+1. Clone and install:
 ```bash
 git clone <repository-url>
 cd reddit-mcp-poc
-```
-
-2. Install dependencies using uv:
-```bash
 pip install uv
 uv sync
 ```
 
-### Configuration
-
-Create a `.env` file in the project root:
+2. Configure `.env`:
 ```env
 REDDIT_CLIENT_ID=your_client_id_here
 REDDIT_CLIENT_SECRET=your_client_secret_here
-REDDIT_USER_AGENT=RedditMCP/1.0 by u/your_username
+REDDIT_USER_AGENT=RedditMCP/1.0
 ```
 
-### Running the Server
-
-#### Production Mode
+3. Run server:
 ```bash
 uv run src/server.py
 ```
 
-#### Development Mode (with MCP Inspector)
+### Claude Code Integration
+
+Add to Claude Code:
 ```bash
-fastmcp dev src/server.py
+claude mcp add -s user -t stdio reddit-mcp-poc uv run fastmcp run <FULL_PATH>/src/server.py
 ```
 
-The server will start and be ready to accept MCP connections.
+Verify connection:
+```bash
+claude mcp list
+```
 
-## Claude Code Integration
+## Usage
 
-To use this Reddit MCP server with Claude Code, follow these steps to add it to your MCP configuration:
-
-### Prerequisites
-- Ensure you have `uv` installed and the server is working locally
-- Test that the server starts correctly by running `uv run src/server.py` in your project directory
-
-### Installation Steps
-
-**Important:** Replace `<PATH_TO_YOUR_PROJECT>` with the absolute path to your project directory.
-
-1. **Add the MCP server to Claude Code:**
-   ```bash
-   claude mcp add -s user -t stdio reddit-mcp-poc uv run fastmcp run <PATH_TO_YOUR_PROJECT>/reddit-mcp-poc/src/server.py
-   ```
-
-   **Example paths by platform:**
-   - **macOS/Linux:** `/home/username/projects/reddit-mcp-poc/src/server.py`
-   - **Windows:** `C:\Users\username\projects\reddit-mcp-poc\src\server.py`
-
-2. **Verify the installation:**
-   ```bash
-   claude mcp list
-   ```
-   
-   You should see `reddit-mcp-poc` listed with a ✓ Connected status.
-
-### Troubleshooting
-
-**If you see a "Failed to connect" status:**
-- Check that the path to your `server.py` file is correct and complete
-- Ensure there are no line breaks or truncation in the command path
-- Remove and re-add the server if the path was truncated:
-  ```bash
-  claude mcp remove -s user reddit-mcp-poc
-  claude mcp add -s user -t stdio reddit-mcp-poc uv run fastmcp run <FULL_PATH_TO_SERVER.PY>
-  ```
-
-**Common Issues:**
-- **Path truncation**: Make sure to copy the full path without any line breaks
-- **Command not found**: Verify that `uv` is installed and accessible in your PATH
-- **Server not starting**: Test the command `uv run src/server.py` directly in terminal first before adding to Claude Code
-
-**Configuration Details:**
-- **Scope**: User-level configuration (`-s user`)
-- **Transport**: STDIO (`-t stdio`)
-- **Server Name**: `reddit-mcp-poc`
-
-## 🚀 Recommended Workflow for Comprehensive Research
-
-For the best results, follow this workflow that leverages all three layers:
+### Three-Layer Workflow
 
 ```python
-# 1. DISCOVERY - Find relevant communities
-discover_reddit_resources(
-    topic="machine learning ethics", 
-    discovery_depth="comprehensive"
-)
+# 1. DISCOVERY - Find communities
+discover_operations()
 
-# 2. REQUIREMENTS - Get parameter guidance (if needed)
-get_operation_requirements("fetch_multiple", context="ML ethics discussion")
+# 2. REQUIREMENTS - Get parameters (optional)
+get_operation_schema("fetch_multiple")
 
-# 3. EXECUTION - Fetch from multiple communities
-execute_reddit_operation("fetch_multiple", {
-    "subreddit_names": ["MachineLearning", "artificial", "singularity", "ethics"],
+# 3. EXECUTION - Fetch content
+execute_operation("fetch_multiple", {
+    "subreddit_names": ["MachineLearning", "artificial"],
     "limit_per_subreddit": 8
 })
+```
 
-# 4. DEEP DIVE - Get comments for promising posts
-execute_reddit_operation("fetch_comments", {
+### Quick Operations
+
+```python
+# Search across Reddit
+execute_operation("search_all", {
+    "query": "AI ethics",
+    "limit": 15
+})
+
+# Get comments for analysis
+execute_operation("fetch_comments", {
     "submission_id": "abc123",
     "comment_limit": 100
 })
 ```
 
-**Why This Works:**
-- 📊 **60% better coverage** than single-subreddit approaches
-- 🔗 **Proper citations** with Reddit URLs included automatically  
-- ⚡ **70% fewer API calls** through intelligent batching
-- 📝 **Research-ready** with comprehensive comment analysis
-
 ## Available Operations
 
-The server provides access to Reddit through these operations via `execute_reddit_operation`:
+**Core Operations:**
+- `discover_subreddits` - Semantic search for communities
+- `search_all` - Search across Reddit
+- `search_subreddit` - Search within a community
+- `fetch_posts` - Get posts from one subreddit
+- `fetch_multiple` - Batch fetch from multiple subreddits
+- `fetch_comments` - Get full comment trees
 
-### Core Operations
-
-| Operation | Description | Best For |
-|-----------|-------------|----------|
-| `search_all` | Search across ALL of Reddit | Broad topic exploration |
-| `search_subreddit` | Search within specific subreddit | Targeted community search |
-| `fetch_posts` | Get latest posts from subreddit | Current trends/activity |
-| `fetch_multiple` | **⚡ Batch fetch from multiple subreddits** | **Multi-community research** |
-| `fetch_comments` | Get post with full discussion | Deep analysis of conversations |
-
-### Three-Layer Architecture Tools
-
-| Tool | Purpose | When to Use |
-|------|---------|-------------|
-| `discover_reddit_resources` | Find relevant communities & operations | **ALWAYS START HERE** |
-| `get_operation_requirements` | Get detailed parameter schemas | Before complex operations |
-| `execute_reddit_operation` | Execute any Reddit operation | After getting requirements |
-
-## MCP Resources
-
-The server provides three MCP resources for accessing commonly used data:
-
-### 1. reddit://popular-subreddits
-Returns a list of the 25 most popular subreddits with subscriber counts and descriptions.
-
-### 2. reddit://subreddit/{name}/about
-Get detailed information about a specific subreddit including:
-- Title and description
-- Subscriber count and active users
-- Subreddit rules
-- Creation date and other metadata
-
-### 3. reddit://server-info
-Returns comprehensive information about the MCP server including:
-- Available tools and resources
-- Version information
-- Usage examples
-- Current rate limit status
-
-## Usage Examples
-
-### 🎯 Three-Layer Architecture Workflow
-
-```python
-# RECOMMENDED: Full research workflow
-# Step 1: Discover communities
-result = discover_reddit_resources(
-    topic="sustainable technology",
-    discovery_depth="comprehensive"
-)
-# Returns: 8-15 relevant subreddits + recommended operations
-
-# Step 2: Get operation requirements (optional)
-schema = get_operation_requirements("fetch_multiple")
-# Returns: Parameter schemas, suggestions, common mistakes
-
-# Step 3: Execute with discovered communities
-posts = execute_reddit_operation("fetch_multiple", {
-    "subreddit_names": result["relevant_communities"]["subreddits"][:8],
-    "listing_type": "hot",
-    "limit_per_subreddit": 6
-})
-
-# Step 4: Deep dive into promising discussions
-comments = execute_reddit_operation("fetch_comments", {
-    "submission_id": "interesting_post_id",
-    "comment_limit": 100
-})
-```
-
-### ⚡ Quick Operations
-
-```python
-# Search across all Reddit
-execute_reddit_operation("search_all", {
-    "query": "artificial intelligence ethics",
-    "sort": "top",
-    "time_filter": "week",
-    "limit": 15
-})
-
-# Search within specific subreddit
-execute_reddit_operation("search_subreddit", {
-    "subreddit_name": "MachineLearning",
-    "query": "transformer architecture",
-    "limit": 20
-})
-
-# Batch fetch from known subreddits (70% more efficient)
-execute_reddit_operation("fetch_multiple", {
-    "subreddit_names": ["artificial", "singularity", "Futurology"],
-    "listing_type": "hot",
-    "limit_per_subreddit": 8
-})
-```
-
-## Testing
-
-Run the test suite:
-```bash
-uv run pytest tests/
-```
+**MCP Resources:**
+- `reddit://popular-subreddits` - Top 25 subreddits
+- `reddit://subreddit/{name}/about` - Subreddit details
+- `reddit://server-info` - Server capabilities
 
 ## Project Structure
 
 ```
 reddit-mcp-poc/
 ├── src/
-│   ├── server.py           # Main MCP server with three-layer architecture
-│   ├── config.py           # Reddit client configuration
-│   ├── models.py           # Pydantic data models
-│   ├── resources.py        # MCP resource implementations
-│   └── tools/              # Tool implementations
-│       ├── search.py       # Search functionality (with permalink support)
-│       ├── posts.py        # Subreddit posts fetching
-│       ├── comments.py     # Comments fetching
-│       └── discover.py     # Subreddit discovery
+│   ├── server.py           # Main MCP server
+│   ├── config.py           # Reddit client setup
+│   ├── resources.py        # MCP resources
+│   └── tools/              
+│       ├── search.py       # Search operations
+│       ├── posts.py        # Post fetching
+│       ├── comments.py     # Comment retrieval
+│       ├── discover.py     # Subreddit discovery
+│       └── db/             # Vector search database
 ├── tests/
-│   └── test_tools.py       # Unit tests
-├── pyproject.toml          # Project dependencies
-├── .env                    # Your API credentials
-└── README.md              # This file
+├── pyproject.toml
+└── .env
 ```
-
-## Error Handling
-
-The server handles common Reddit API errors gracefully:
-- **Rate Limiting**: Automatically handled by PRAW with 5-minute cooldown
-- **Not Found**: Returns error message for non-existent subreddits/posts
-- **Forbidden**: Returns error message for private/restricted content
-- **Invalid Input**: Validates and sanitizes all input parameters
-
-## Limitations
-
-This MVP implementation has some intentional limitations:
-- Read-only access (no posting, commenting, or voting)
-- No user authentication (uses application-only auth)
-- Limited comment expansion (doesn't fetch "more comments")
-- No caching (each request hits Reddit API directly)
-
-## Next Steps
-
-Building on the three-layer architecture foundation:
-1. **Enhanced LLM Guidance**: Improve `get_operation_requirements` with richer context-aware suggestions
-2. **Advanced Analytics**: Add sentiment analysis and trend detection to discovered communities
-3. **Caching Layer**: Implement intelligent caching for discovered communities and frequent queries
-4. **User Authentication**: Add write operations (posting, commenting) with proper auth
-5. **Extended Discovery**: Add time-based and activity-based community discovery modes
-6. **Research Templates**: Pre-configured workflows for common research patterns
-7. **Citation Tools**: Automated bibliography generation from Reddit URLs
 
 ## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
-| "Reddit API credentials not found" | Ensure `.env` file exists with valid credentials |
-| Rate limit errors | Wait a few minutes; PRAW handles this automatically |
+| "Reddit API credentials not found" | Check `.env` file exists with valid credentials |
+| Rate limit errors | Wait a few minutes; handled automatically |
 | "Subreddit not found" | Verify subreddit name (without r/ prefix) |
-| No search results | Try broader search terms or different time filter |
-| Import errors | Run `uv sync` to install all dependencies |
 
 ## License
 
 MIT
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.

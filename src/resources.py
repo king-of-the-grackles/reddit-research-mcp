@@ -110,12 +110,18 @@ def register_resources(mcp, reddit: praw.Reddit) -> None:
         
         return {
             "name": "Reddit MCP Server",
-            "version": "0.2.0",
-            "description": "A Model Context Protocol server for Reddit content access with advanced discovery and batch operations",
+            "version": "0.3.0",
+            "description": "A Model Context Protocol server for Reddit using three-layer architecture",
             "changelog": {
+                "0.3.0": [
+                    "Implemented three-layer architecture for clearer operation flow",
+                    "Removed search_all operation in favor of semantic discovery",
+                    "Enhanced workflow guidance with confidence-based recommendations",
+                    "Improved error recovery suggestions"
+                ],
                 "0.2.0": [
-                    "Added discover_subreddits_tool with confidence scoring",
-                    "Added fetch_multiple_subreddits_tool for batch operations",
+                    "Added discover_subreddits with confidence scoring",
+                    "Added fetch_multiple_subreddits for batch operations",
                     "Enhanced server-info with comprehensive documentation",
                     "Improved error handling and rate limit management"
                 ],
@@ -125,76 +131,51 @@ def register_resources(mcp, reddit: praw.Reddit) -> None:
                 ]
             },
             "capabilities": {
+                "architecture": {
+                    "type": "Three-Layer Architecture",
+                    "workflow": [
+                        "Layer 1: discover_operations() - See available operations",
+                        "Layer 2: get_operation_schema(operation_id) - Get requirements",
+                        "Layer 3: execute_operation(operation_id, parameters) - Execute"
+                    ],
+                    "description": "ALWAYS start with Layer 1, then Layer 2, then Layer 3"
+                },
                 "tools": [
                     {
-                        "name": "discover_subreddits_tool",
-                        "description": "Discover subreddits by keywords with confidence scoring. Supports batch queries for efficiency.",
+                        "name": "discover_operations",
+                        "layer": 1,
+                        "description": "Discover available Reddit operations",
+                        "parameters": "None - just call discover_operations() to see what's available",
+                        "purpose": "Shows all available operations and recommended workflows"
+                    },
+                    {
+                        "name": "get_operation_schema",
+                        "layer": 2,
+                        "description": "Get parameter requirements for an operation",
                         "parameters": {
-                            "query": "Single search term (e.g., 'python')",
-                            "queries": "List of search terms for batch discovery (more efficient)",
-                            "limit": "Maximum results per query (default 10)",
-                            "include_nsfw": "Whether to include NSFW subreddits (default False)"
+                            "operation_id": "The operation to get schema for (from Layer 1)",
+                            "include_examples": "Whether to include examples (optional, default: true)"
                         },
-                        "features": [
-                            "Confidence scoring based on name match, description, and activity",
-                            "Batch mode reduces API calls by 70%+",
-                            "Smart suggestions for alternative searches",
-                            "NSFW filtering with count reporting"
-                        ]
+                        "purpose": "Provides parameter schemas, validation rules, and examples"
                     },
                     {
-                        "name": "search_posts_tool",
-                        "description": "Search for posts across ALL of Reddit",
+                        "name": "execute_operation",
+                        "layer": 3,
+                        "description": "Execute a Reddit operation",
                         "parameters": {
-                            "query": "Search terms (required)",
-                            "sort": "relevance, hot, top, or new (default: relevance)",
-                            "time_filter": "all, year, month, week, or day (default: all)",
-                            "limit": "Maximum results 1-100 (default: 10)"
-                        }
-                    },
-                    {
-                        "name": "search_in_subreddit_tool",
-                        "description": "Search for posts within a SPECIFIC subreddit",
-                        "parameters": {
-                            "subreddit_name": "The subreddit to search in (required)",
-                            "query": "Search terms (required)",
-                            "sort": "relevance, hot, top, or new (default: relevance)",
-                            "time_filter": "all, year, month, week, or day (default: all)",
-                            "limit": "Maximum results 1-100 (default: 10)"
-                        }
-                    },
-                    {
-                        "name": "fetch_subreddit_posts_tool",
-                        "description": "Browse posts from a specific subreddit without searching",
-                        "parameters": {
-                            "subreddit_name": "Exact subreddit name (required)",
-                            "listing_type": "hot, new, top, or rising (default: hot)",
-                            "time_filter": "For 'top' posts: all, year, month, week, or day",
-                            "limit": "Maximum posts 1-100 (default: 10)"
-                        }
-                    },
-                    {
-                        "name": "fetch_multiple_subreddits_tool",
-                        "description": "Fetch posts from multiple subreddits in one efficient call",
-                        "parameters": {
-                            "subreddit_names": "List of subreddit names (required)",
-                            "listing_type": "hot, new, top, or rising (default: hot)",
-                            "time_filter": "For 'top' posts: all, year, month, week, or day",
-                            "limit_per_subreddit": "Maximum posts per subreddit 1-25 (default: 5)"
+                            "operation_id": "The operation to execute",
+                            "parameters": "Parameters matching the schema from Layer 2"
                         },
-                        "efficiency_note": "Reduces API calls by fetching multiple subreddits in parallel"
-                    },
-                    {
-                        "name": "fetch_submission_with_comments_tool",
-                        "description": "Get a Reddit post with its complete comment tree",
-                        "parameters": {
-                            "submission_id": "Reddit post ID (e.g., '1abc234')",
-                            "url": "Full Reddit URL (alternative to submission_id)",
-                            "comment_limit": "Maximum comments to fetch (default: 100)",
-                            "comment_sort": "best, top, or new (default: best)"
-                        }
+                        "purpose": "Actually performs the Reddit API calls"
                     }
                 ],
+                "available_operations": {
+                    "discover_subreddits": "Find communities using semantic search",
+                    "search_subreddit": "Search within a specific community",
+                    "fetch_posts": "Get posts from one subreddit",
+                    "fetch_multiple": "Batch fetch from multiple subreddits (70% more efficient)",
+                    "fetch_comments": "Get complete comment tree for analysis"
+                },
                 "resources": [
                     {
                         "uri": "reddit://popular-subreddits",
@@ -215,63 +196,59 @@ def register_resources(mcp, reddit: praw.Reddit) -> None:
                         "always_current": True
                     }
                 ],
-                "total_tools": 6,
+                "total_tools": 3,
+                "total_operations": 5,
                 "total_resources": 3
             },
             "usage_examples": {
-                "discover_subreddits": {
-                    "single": "discover_subreddits_tool(query='python', limit=10)",
-                    "batch": "discover_subreddits_tool(queries=['django', 'flask', 'fastapi'], limit=5)",
-                    "with_nsfw": "discover_subreddits_tool(query='gaming', include_nsfw=True)"
-                },
-                "search": {
-                    "global": "search_posts_tool(query='machine learning news', sort='top', time_filter='week')",
-                    "in_subreddit": "search_in_subreddit_tool(subreddit_name='MachineLearning', query='transformers')"
-                },
-                "fetch_posts": {
-                    "single": "fetch_subreddit_posts_tool(subreddit_name='technology', listing_type='hot')",
-                    "multiple": "fetch_multiple_subreddits_tool(subreddit_names=['python', 'django'], listing_type='new')"
-                },
-                "comments": "fetch_submission_with_comments_tool(url='https://reddit.com/r/...')",
-                "resources": {
-                    "popular": "Access resource: reddit://popular-subreddits",
-                    "about": "Access resource: reddit://subreddit/python/about"
-                }
+                "complete_workflow": [
+                    "Step 1: discover_operations()",
+                    "Step 2: get_operation_schema('discover_subreddits')",
+                    "Step 3: execute_operation('discover_subreddits', {'query': 'python', 'limit': 10})"
+                ],
+                "research_workflow": [
+                    "1. discover_operations() - See what's available",
+                    "2. get_operation_schema('discover_subreddits') - Get requirements",
+                    "3. execute_operation('discover_subreddits', {'query': 'texas redistricting'})",
+                    "4. get_operation_schema('fetch_multiple') - Get batch fetch requirements",
+                    "5. execute_operation('fetch_multiple', {'subreddit_names': ['texas', 'politics']})",
+                    "6. get_operation_schema('fetch_comments') - Get comment fetch requirements",
+                    "7. execute_operation('fetch_comments', {'submission_id': '1abc234'})"
+                ],
+                "targeted_search": [
+                    "1. discover_operations()",
+                    "2. get_operation_schema('discover_subreddits')",
+                    "3. execute_operation('discover_subreddits', {'query': 'machine learning'})",
+                    "4. get_operation_schema('search_subreddit')",
+                    "5. execute_operation('search_subreddit', {'subreddit_name': 'MachineLearning', 'query': 'transformers'})"
+                ]
             },
             "performance_tips": [
-                "Use discover_subreddits_tool with batch queries to reduce API calls by 70%+",
-                "Use fetch_multiple_subreddits_tool instead of multiple fetch_subreddit_posts_tool calls",
-                "Cache resource responses when appropriate (popular-subreddits, subreddit/about)",
-                "Confidence scores in discover_subreddits help identify best matches quickly"
+                "Always follow the three-layer workflow: discover → schema → execute",
+                "Use fetch_multiple operation for 2+ subreddits (70% fewer API calls)",
+                "Single vector search in discover_subreddits finds all relevant communities",
+                "Use confidence scores to determine workflow (>0.7 = high confidence)",
+                "Cache resource responses when appropriate (popular-subreddits, subreddit/about)"
             ],
-            "batch_query_strategy": {
-                "token_limit_warning": "MCP enforces a 25,000 token response limit",
-                "safe_batch_sizes": [
-                    "5 queries with limit=10 each (~3-5K tokens per batch)",
-                    "8 queries with limit=5 each (~2-3K tokens per batch)",
-                    "3 queries with limit=15 each (~4-6K tokens per batch)"
-                ],
-                "risky_configurations": [
-                    "10+ queries with limit=15 (likely to exceed token limit)",
-                    "15+ queries with limit=10 (will exceed token limit)"
-                ],
-                "comprehensive_discovery_example": {
-                    "scenario": "Finding all gaming communities",
-                    "approach": "Use 3-4 separate batch calls instead of one large batch",
-                    "calls": [
-                        "Call 1: ['gaming', 'video games', 'pc gaming', 'console', 'esports']",
-                        "Call 2: ['board games', 'tabletop', 'card games', 'rpg', 'chess']",
-                        "Call 3: ['retro gaming', 'arcade', 'indie games', 'mobile gaming']",
-                        "Call 4: ['mmorpg', 'fps games', 'strategy games', 'puzzle games']"
-                    ],
-                    "benefit": "Gets comprehensive results without token overflow errors"
+            "workflow_guidance": {
+                "starting_research": {
+                    "description": "For any new topic, always start with the three layers",
+                    "steps": [
+                        "1. discover_operations() - No parameters needed",
+                        "2. get_operation_schema('discover_subreddits')",
+                        "3. execute_operation('discover_subreddits', {'query': 'your_topic'})"
+                    ]
                 },
-                "token_usage_estimates": [
-                    "Single query with limit=10: ~600-1000 tokens",
-                    "5 queries batch with limit=10: ~3000-5000 tokens",
-                    "10 queries batch with limit=10: ~6000-10000 tokens",
-                    "Response size grows with confidence scores and metadata"
-                ]
+                "confidence_based_workflow": {
+                    "high_confidence": "If avg confidence > 0.7: Use fetch_multiple with top communities",
+                    "medium_confidence": "If avg confidence 0.4-0.7: Combine fetch_multiple and search_subreddit",
+                    "low_confidence": "If avg confidence < 0.4: Try different search terms"
+                },
+                "token_optimization": {
+                    "discover_subreddits": "Single semantic search (~1-2K tokens)",
+                    "fetch_multiple": "Batch fetch (~500-1000 tokens per subreddit)",
+                    "fetch_comments": "Deep analysis (~2-5K tokens per post with comments)"
+                }
             },
             "rate_limiting": {
                 "handler": "PRAW automatic rate limit handling",

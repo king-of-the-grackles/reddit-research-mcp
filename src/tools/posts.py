@@ -39,7 +39,7 @@ def fetch_subreddit_posts(
         except NotFound:
             return {
                 "error": f"Subreddit r/{clean_name} not found",
-                "suggestion": "Use discover_subreddits_tool to find valid subreddit names"
+                "suggestion": "discover_subreddits({'query': 'topic'})"
             }
         except Forbidden:
             return {"error": f"Access to r/{clean_name} forbidden (may be private)"}
@@ -172,7 +172,7 @@ def fetch_multiple_subreddits(
         except Exception as e:
             return {
                 "error": f"Failed to fetch from multiple subreddits: {str(e)}",
-                "suggestion": "Verify all subreddit names are valid. Use discover_subreddits_tool to find valid names."
+                "suggestion": "discover_subreddits({'query': 'topic'}) to find valid names"
             }
         
     except Exception as e:

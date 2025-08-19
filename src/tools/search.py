@@ -4,64 +4,6 @@ from prawcore import NotFound, Forbidden
 from ..models import SearchResult, RedditPost
 
 
-def search_all_reddit(
-    query: str,
-    reddit: praw.Reddit,
-    sort: Literal["relevance", "hot", "top", "new"] = "relevance",
-    time_filter: Literal["all", "year", "month", "week", "day"] = "all",
-    limit: int = 10
-) -> Dict[str, Any]:
-    """
-    Search for posts across all of Reddit.
-    
-    Args:
-        query: Search query string
-        reddit: Configured Reddit client
-        sort: Sort method for results
-        time_filter: Time filter for results
-        limit: Maximum number of results (max 100, default 10)
-    
-    Returns:
-        Dictionary containing search results
-    """
-    try:
-        # Validate limit
-        limit = min(max(1, limit), 100)
-        
-        # Search across all of Reddit
-        search_results = reddit.subreddit("all").search(
-            query,
-            sort=sort,
-            time_filter=time_filter,
-            limit=limit
-        )
-        
-        # Parse results
-        results = []
-        for submission in search_results:
-            results.append(RedditPost(
-                id=submission.id,
-                title=submission.title,
-                author=str(submission.author) if submission.author else "[deleted]",
-                subreddit=submission.subreddit.display_name,
-                score=submission.score,
-                created_utc=submission.created_utc,
-                url=submission.url,
-                num_comments=submission.num_comments,
-                permalink=f"https://reddit.com{submission.permalink}"
-            ))
-        
-        result = SearchResult(
-            results=results,
-            count=len(results)
-        )
-        
-        return result.model_dump()
-        
-    except Exception as e:
-        return {"error": f"Search failed: {str(e)}"}
-
-
 def search_in_subreddit(
     subreddit_name: str,
     query: str,
@@ -106,7 +48,7 @@ def search_in_subreddit(
         except NotFound:
             return {
                 "error": f"Subreddit r/{clean_name} not found",
-                "suggestion": "Use discover_subreddits_tool to find valid subreddit names"
+                "suggestion": "discover_subreddits({'query': 'topic'})"
             }
         except Forbidden:
             return {"error": f"Access to r/{clean_name} forbidden (may be private)"}
