@@ -26,7 +26,3 @@ startCommand:
 build:
   dockerfile: "Dockerfile"
   dockerBuildPath: "."
-
-env:
-  TRANSPORT: "http"
-  PYTHONUNBUFFERED: "1"

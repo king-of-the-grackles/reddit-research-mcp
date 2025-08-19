@@ -1,3 +1,5 @@
+print("PYTHON SCRIPT STARTED", flush=True)
+
 from fastmcp import FastMCP
 from fastmcp.prompts import Message
 from typing import Optional, Literal, List, Union, Dict, Any, Annotated

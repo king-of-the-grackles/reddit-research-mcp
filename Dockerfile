@@ -42,5 +42,5 @@ ENV TRANSPORT=http
 # Expose port for HTTP mode
 EXPOSE 8080
 
-# Run the server using absolute path for better reliability
-CMD ["python", "/app/src/server.py"]
+# Use ENTRYPOINT to prevent override by container orchestration
+ENTRYPOINT ["python", "/app/src/server.py"]
