@@ -58,7 +58,10 @@ def initialize_reddit_client():
     register_resources(mcp, reddit)
 
 # Initialize with environment variables initially
-initialize_reddit_client()
+try:
+    initialize_reddit_client()
+except Exception as e:
+    print(f"DEBUG: Reddit init failed: {e}", flush=True)
 
 
 # Three-Layer Architecture Implementation
@@ -501,6 +504,7 @@ def reddit_research(research_request: str) -> List[Message]:
 
 def main():
     """Main entry point for the Reddit MCP server."""
+    print("DEBUG: main() started", flush=True)
     # Check transport mode from environment
     transport = os.environ.get("TRANSPORT", "stdio")
     
@@ -557,6 +561,7 @@ def main():
         # Run with uvicorn
         port = int(os.environ.get("PORT", 8080))
         print(f"Starting Reddit MCP server on port {port} with HTTP transport...")
+        print(f"DEBUG: Starting uvicorn on port {port}", flush=True)
         uvicorn.run(app, host="0.0.0.0", port=port)
     else:
         # Standard stdio mode for local development
