@@ -42,5 +42,5 @@ ENV TRANSPORT=http
 # Expose port for HTTP mode
 EXPOSE 8080
 
-# Use ENTRYPOINT to prevent override by container orchestration
-ENTRYPOINT ["python", "/app/src/server.py"]
+# Use fastmcp run command to properly start the HTTP server
+CMD ["uv", "run", "fastmcp", "run", "/app/src/server.py", "--transport", "http", "--port", "8080"]
