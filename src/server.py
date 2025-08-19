@@ -3,6 +3,7 @@ from fastmcp.prompts import Message
 from typing import Optional, Literal, List, Union, Dict, Any, Annotated
 import sys
 import os
+import json
 import uvicorn
 from pathlib import Path
 from datetime import datetime
@@ -548,20 +549,67 @@ def main():
         # Run with uvicorn
         uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
     else:
-        # STDIO mode for local development
+        # STDIO mode for local development and Smithery CLI
         print("Reddit MCP Server starting in STDIO mode...", flush=True)
         
-        # For STDIO, try to get config from environment variables
-        env_config = {}
-        if os.getenv("REDDIT_CLIENT_ID"):
-            env_config["REDDIT_CLIENT_ID"] = os.getenv("REDDIT_CLIENT_ID")
-        if os.getenv("REDDIT_CLIENT_SECRET"):
-            env_config["REDDIT_CLIENT_SECRET"] = os.getenv("REDDIT_CLIENT_SECRET")
-        if os.getenv("REDDIT_USER_AGENT"):
-            env_config["REDDIT_USER_AGENT"] = os.getenv("REDDIT_USER_AGENT")
+        config = {}
         
-        if env_config:
-            handle_config(env_config)
+        # Method 1: Check for JSON config passed as command-line argument
+        # Smithery CLI might pass config as: python server.py '{"REDDIT_CLIENT_ID":"xxx"}'
+        if len(sys.argv) > 1:
+            try:
+                potential_config = sys.argv[1]
+                if potential_config.startswith('{'):
+                    config = json.loads(potential_config)
+                    print(f"DEBUG: Loaded config from command line argument", flush=True)
+            except json.JSONDecodeError:
+                print(f"DEBUG: Failed to parse command line argument as JSON", flush=True)
+            except Exception as e:
+                print(f"DEBUG: Error processing command line config: {e}", flush=True)
+        
+        # Method 2: Check for config passed via stdin (some MCP clients send config this way)
+        if not config and not sys.stdin.isatty():
+            try:
+                # Only try to read from stdin if it's not a terminal (i.e., it's piped)
+                config_line = sys.stdin.readline().strip()
+                if config_line and config_line.startswith('{'):
+                    config = json.loads(config_line)
+                    print(f"DEBUG: Loaded config from stdin", flush=True)
+            except Exception as e:
+                print(f"DEBUG: No config from stdin: {e}", flush=True)
+        
+        # Method 3: Check environment variables (existing method)
+        if not config:
+            if os.getenv("REDDIT_CLIENT_ID"):
+                config["REDDIT_CLIENT_ID"] = os.getenv("REDDIT_CLIENT_ID")
+            if os.getenv("REDDIT_CLIENT_SECRET"):
+                config["REDDIT_CLIENT_SECRET"] = os.getenv("REDDIT_CLIENT_SECRET")
+            if os.getenv("REDDIT_USER_AGENT"):
+                config["REDDIT_USER_AGENT"] = os.getenv("REDDIT_USER_AGENT")
+            if config:
+                print(f"DEBUG: Loaded config from environment variables", flush=True)
+        
+        # Method 4: Check for config file
+        if not config:
+            config_file = os.getenv("MCP_CONFIG_FILE", ".mcp-config.json")
+            if os.path.exists(config_file):
+                try:
+                    with open(config_file, 'r') as f:
+                        config = json.load(f)
+                    print(f"DEBUG: Loaded config from file: {config_file}", flush=True)
+                except Exception as e:
+                    print(f"DEBUG: Failed to load config file: {e}", flush=True)
+        
+        # Initialize with whatever config we found
+        if config:
+            print(f"DEBUG: Initializing with config keys: {list(config.keys())}", flush=True)
+            handle_config(config)
+        else:
+            print("WARNING: No configuration found. Server will run with limited functionality.", flush=True)
+            print("Please provide Reddit API credentials via:", flush=True)
+            print("  1. Command line argument: python server.py '{\"REDDIT_CLIENT_ID\":\"...\", ...}'", flush=True)
+            print("  2. Environment variables: REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT", flush=True)
+            print("  3. Config file: .mcp-config.json", flush=True)
         
         # Run with stdio transport
         mcp.run()
