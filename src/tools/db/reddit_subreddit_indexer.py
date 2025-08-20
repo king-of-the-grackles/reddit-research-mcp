@@ -31,8 +31,6 @@ Usage:
 
 import asyncio
 import asyncpraw
-import chromadb
-from chromadb.config import Settings
 import os
 import json
 import time
@@ -46,18 +44,20 @@ from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 import aiofiles
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from src.chroma_client import get_chroma_client, get_collection
 
 # Load environment
 load_dotenv()
 
 # Configuration
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CHROMA_PERSIST_DIR = os.path.join(SCRIPT_DIR, "data", "subreddit_vectors")
 COLLECTION_NAME = "reddit_subreddits"
 STATE_FILE = os.path.join(SCRIPT_DIR, "data", "indexer_state.json")
 BATCH_SIZE = 100
-ACTIVITY_THRESHOLD_DAYS = 30
-MIN_SUBSCRIBERS = 5000
+ACTIVITY_THRESHOLD_DAYS = 7  # Reduced from 30 to capture more recently active subreddits
+MIN_SUBSCRIBERS = 2000  # Reduced from 5000 to capture more communities
 
 console = Console()
 
@@ -144,25 +144,13 @@ class SubredditIndexer:
     
     def _init_chromadb(self):
         """Initialize ChromaDB client"""
-        Path(CHROMA_PERSIST_DIR).mkdir(parents=True, exist_ok=True)
-        return chromadb.PersistentClient(
-            path=CHROMA_PERSIST_DIR,
-            settings=Settings(anonymized_telemetry=False)
-        )
+        # Use the centralized client factory
+        # If running locally and need specific path, can pass custom_path
+        return get_chroma_client()
     
     def _get_or_create_collection(self):
         """Get or create ChromaDB collection"""
-        try:
-            return self.chroma_client.get_collection(COLLECTION_NAME)
-        except:
-            console.print(f"[yellow]Creating new collection: {COLLECTION_NAME}[/yellow]")
-            return self.chroma_client.create_collection(
-                name=COLLECTION_NAME,
-                metadata={
-                    "description": "Active Reddit subreddits for semantic search",
-                    "created": datetime.now().isoformat()
-                }
-            )
+        return get_collection(COLLECTION_NAME, self.chroma_client)
     
     def _load_state(self) -> Dict:
         """Load indexer state for resume capability"""
@@ -373,6 +361,204 @@ class SubredditIndexer:
         
         await self.discover_by_search(categories, collector, limit_per_query=100)
     
+    async def discover_by_smart_search(self, collector: StreamingDiscoveryCollector):
+        """Use search_by_name with high-yield prefixes for efficient discovery"""
+        console.print("[cyan]Discovering subreddits using smart search patterns...[/cyan]")
+        
+        # High-yield prefixes based on Reddit naming patterns and English frequency
+        smart_prefixes = [
+            # High-frequency starts (covers ~60% of subreddits)
+            'th', 'he', 'in', 'er', 'an', 're', 'ed', 'on', 'es', 'st',
+            'en', 'at', 'to', 'nt', 'ha', 'nd', 'ou', 'ea', 'ng', 'as',
+            'or', 'ti', 'wa', 'hi', 'is', 'it', 'te', 'et', 'ar', 'of',
+            
+            # Reddit-specific common patterns
+            'ask', 'new', 'the', 'my', 'bad', 'pro', 'not', 'all', 'get', 'old',
+            'true', 'best', 'real', 'shitty', 'casual', 'learn', 'anti', 'ex',
+            
+            # Important single letters (many subs start with these)
+            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 
+            'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
+        ]
+        
+        total_found = 0
+        for i, prefix in enumerate(smart_prefixes, 1):
+            try:
+                count = 0
+                console.print(f"  Searching '{prefix}' ({i}/{len(smart_prefixes)})...")
+                
+                # search_by_name can return up to 1000 results per query
+                async for subreddit in self.reddit.subreddits.search_by_name(
+                    prefix, include_nsfw=True, limit=1000
+                ):
+                    if subreddit.id not in collector.seen_ids:
+                        # Still apply our activity filter
+                        if await self._is_active(subreddit):
+                            data = await self._extract_subreddit_data(subreddit)
+                            if data:
+                                await collector.add(data)
+                                count += 1
+                    else:
+                        self.duplicates_avoided += 1
+                
+                if count > 0:
+                    total_found += count
+                    console.print(f"    Found {count} active subreddits")
+                    
+            except Exception as e:
+                console.print(f"[yellow]  Error searching '{prefix}': {e}[/yellow]")
+                continue
+        
+        console.print(f"  Total from smart search: {total_found} subreddits")
+    
+    async def discover_by_recommendation_graph(self, collector: StreamingDiscoveryCollector, max_depth: int = 100):
+        """Use Reddit's recommendation engine to discover related subreddits"""
+        console.print("[cyan]Discovering subreddits through recommendation graph...[/cyan]")
+        
+        # Use already discovered subreddits as seeds
+        seeds = list(collector.seen_ids)[:100]  # Start with top 100 as seeds
+        if not seeds:
+            console.print("[yellow]  No seed subreddits available for recommendations[/yellow]")
+            return
+        
+        processed = set()
+        to_process = seeds[:20]  # Start with first 20 seeds
+        total_found = 0
+        
+        while to_process and len(processed) < max_depth:
+            batch = to_process[:5]  # Process 5 at a time to avoid rate limits
+            to_process = to_process[5:]
+            
+            for seed_id in batch:
+                if seed_id in processed:
+                    continue
+                processed.add(seed_id)
+                
+                try:
+                    # Get the subreddit name from ID (we need the name for recommendations)
+                    # First, try to get it from our collected data
+                    seed_name = None
+                    try:
+                        # Get subreddit by ID to get its name
+                        result = self.collection.get(ids=[seed_id], include=['metadata'])
+                        if result and result['metadatas'] and result['metadatas'][0]:
+                            seed_name = result['metadatas'][0].get('name')
+                    except:
+                        pass
+                    
+                    if not seed_name:
+                        continue
+                    
+                    # Get Reddit's recommendations for this subreddit
+                    count = 0
+                    async for recommended in self.reddit.subreddits.recommended(
+                        subreddits=[seed_name], omit_subreddits=list(collector.seen_ids)[:100]
+                    ):
+                        if recommended.id not in collector.seen_ids:
+                            if await self._is_active(recommended):
+                                data = await self._extract_subreddit_data(recommended)
+                                if data:
+                                    await collector.add(data)
+                                    count += 1
+                                    total_found += 1
+                                    
+                                    # Add to processing queue for recursive discovery
+                                    if len(processed) < max_depth and recommended.id not in processed:
+                                        to_process.append(recommended.id)
+                        else:
+                            self.duplicates_avoided += 1
+                    
+                    if count > 0:
+                        console.print(f"  Seed '{seed_name}': found {count} related subreddits")
+                        
+                except Exception as e:
+                    # Silently skip errors for individual seeds
+                    continue
+        
+        console.print(f"  Total from recommendation graph: {total_found} subreddits")
+    
+    async def discover_default_and_gold(self, collector: StreamingDiscoveryCollector):
+        """Discover default and gold (premium) subreddits"""
+        console.print("[cyan]Discovering default and premium subreddits...[/cyan]")
+        
+        total_found = 0
+        
+        # Get default subreddits
+        try:
+            count = 0
+            async for subreddit in self.reddit.subreddits.default(limit=None):
+                if subreddit.id not in collector.seen_ids:
+                    data = await self._extract_subreddit_data(subreddit)
+                    if data:
+                        await collector.add(data)
+                        count += 1
+                else:
+                    self.duplicates_avoided += 1
+            
+            if count > 0:
+                console.print(f"  Found {count} default subreddits")
+                total_found += count
+        except Exception as e:
+            console.print(f"[yellow]  Error getting default subreddits: {e}[/yellow]")
+        
+        # Get gold/premium subreddits
+        try:
+            count = 0
+            async for subreddit in self.reddit.subreddits.gold():
+                if subreddit.id not in collector.seen_ids:
+                    data = await self._extract_subreddit_data(subreddit)
+                    if data:
+                        await collector.add(data)
+                        count += 1
+                else:
+                    self.duplicates_avoided += 1
+            
+            if count > 0:
+                console.print(f"  Found {count} premium subreddits")
+                total_found += count
+        except Exception as e:
+            console.print(f"[yellow]  Error getting premium subreddits: {e}[/yellow]")
+        
+        console.print(f"  Total from default/premium: {total_found} subreddits")
+    
+    async def discover_by_topic_search(self, collector: StreamingDiscoveryCollector):
+        """Use search_by_topic for topical discovery"""
+        console.print("[cyan]Discovering subreddits by topic search...[/cyan]")
+        
+        # Major topics to search
+        topics = [
+            'technology', 'gaming', 'sports', 'politics', 'science',
+            'entertainment', 'music', 'movies', 'television', 'books',
+            'food', 'travel', 'fitness', 'health', 'education',
+            'business', 'finance', 'cryptocurrency', 'programming', 'art',
+            'photography', 'nature', 'animals', 'history', 'philosophy',
+            'psychology', 'relationships', 'parenting', 'fashion', 'beauty'
+        ]
+        
+        total_found = 0
+        for topic in topics:
+            try:
+                count = 0
+                async for subreddit in self.reddit.subreddits.search_by_topic(topic):
+                    if subreddit.id not in collector.seen_ids:
+                        if await self._is_active(subreddit):
+                            data = await self._extract_subreddit_data(subreddit)
+                            if data:
+                                await collector.add(data)
+                                count += 1
+                    else:
+                        self.duplicates_avoided += 1
+                
+                if count > 0:
+                    console.print(f"  Topic '{topic}': found {count} subreddits")
+                    total_found += count
+                    
+            except Exception as e:
+                console.print(f"[yellow]  Topic '{topic}' failed: {e}[/yellow]")
+                continue
+        
+        console.print(f"  Total from topic search: {total_found} subreddits")
+    
     async def discover_by_common_words(self, collector: StreamingDiscoveryCollector):
         """Discover subreddits using common words and terms"""
         console.print("[cyan]Discovering subreddits by common words...[/cyan]")
@@ -552,15 +738,33 @@ class SubredditIndexer:
             console=console
         ) as progress:
             
-            # Phase 1: Popular subreddits
-            task = progress.add_task(f"[cyan]Popular subreddits (up to {popular_limit})...", total=None)
-            await self.discover_popular_subreddits(
-                limit,  # Pass the user's limit, discovery method will handle it
-                collector=collector
-            )
+            # Phase 1: Default and Premium subreddits (quick win)
+            task = progress.add_task("[cyan]Default and premium subreddits...", total=None)
+            await self.discover_default_and_gold(collector=collector)
             progress.update(task, completed=100)
             
-            # Phase 2: New subreddits
+            # Phase 2: Popular subreddits
+            if not limit or collector.total_collected < limit:
+                task = progress.add_task(f"[cyan]Popular subreddits (up to {popular_limit})...", total=None)
+                await self.discover_popular_subreddits(
+                    limit,  # Pass the user's limit, discovery method will handle it
+                    collector=collector
+                )
+                progress.update(task, completed=100)
+            
+            # Phase 3: Smart search with high-yield prefixes
+            if not limit or collector.total_collected < limit:
+                task = progress.add_task("[cyan]Smart prefix search...", total=None)
+                await self.discover_by_smart_search(collector=collector)
+                progress.update(task, completed=100)
+            
+            # Phase 4: Topic-based discovery
+            if not limit or collector.total_collected < limit:
+                task = progress.add_task("[cyan]Topic-based search...", total=None)
+                await self.discover_by_topic_search(collector=collector)
+                progress.update(task, completed=100)
+            
+            # Phase 5: New subreddits
             if not limit or collector.total_collected < limit:
                 task = progress.add_task(f"[cyan]New subreddits (up to {new_limit})...", total=None)
                 await self.discover_new_subreddits(
@@ -569,14 +773,20 @@ class SubredditIndexer:
                 )
                 progress.update(task, completed=100)
             
-            # Phase 3: Category search
+            # Phase 6: Recommendation graph (finds hidden gems)
+            if not limit or collector.total_collected < limit:
+                task = progress.add_task("[cyan]Recommendation graph traversal...", total=None)
+                await self.discover_by_recommendation_graph(collector=collector)
+                progress.update(task, completed=100)
+            
+            # Phase 7: Category search
             if not limit or collector.total_collected < limit:
                 task = progress.add_task("[cyan]Category search...", total=None)
                 await self.discover_by_categories(collector=collector)
                 progress.update(task, completed=100)
             
-            # Phase 4: Alphabetical search
-            if not limit or collector.total_collected < limit:
+            # Phase 8: Alphabetical search (if still need more)
+            if comprehensive and (not limit or collector.total_collected < limit):
                 task = progress.add_task("[cyan]Alphabetical search...", total=None)
                 await self.discover_alphabetical(
                     limit if limit else None,
@@ -585,7 +795,7 @@ class SubredditIndexer:
                 )
                 progress.update(task, completed=100)
             
-            # Phase 5: Word-based discovery (comprehensive mode only)
+            # Phase 9: Word-based discovery (comprehensive mode only)
             if comprehensive and (not limit or collector.total_collected < limit):
                 task = progress.add_task("[cyan]Word-based discovery...", total=None)
                 await self.discover_by_common_words(collector=collector)
@@ -609,7 +819,7 @@ class SubredditIndexer:
         console.print(f"  Duplicates avoided: {stats['duplicates_skipped'] + self.duplicates_avoided}")
         console.print(f"  Batches processed: {stats['batches_processed']}")
         console.print(f"  Time elapsed: {elapsed:.1f} seconds")
-        console.print(f"  Index location: {CHROMA_PERSIST_DIR}")
+        console.print(f"  Index location: ChromaDB Cloud")
         console.print(f"  Memory efficient: ✓ (Max ~{batch_size * 2}KB in memory)")
     
     async def update_index(self):
@@ -647,7 +857,7 @@ class SubredditIndexer:
             'last_update': self.state.get('last_update', 'Never'),
             'duplicates_avoided': self.duplicates_avoided,
             'collection_name': COLLECTION_NAME,
-            'persist_directory': CHROMA_PERSIST_DIR,
+            'location': 'ChromaDB Cloud',
             'min_subscribers': MIN_SUBSCRIBERS
         }
         return stats
@@ -694,7 +904,7 @@ async def main():
             table.add_row("Last Full Index", stats['last_full_index'])
             table.add_row("Last Update", stats['last_update'])
             table.add_row("Collection", stats['collection_name'])
-            table.add_row("Location", stats['persist_directory'])
+            table.add_row("Location", stats['location'])
             
             console.print(table)
         else:
