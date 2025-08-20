@@ -567,18 +567,7 @@ def main():
             except Exception as e:
                 print(f"DEBUG: Error processing command line config: {e}", flush=True)
         
-        # Method 2: Check for config passed via stdin (some MCP clients send config this way)
-        if not config and not sys.stdin.isatty():
-            try:
-                # Only try to read from stdin if it's not a terminal (i.e., it's piped)
-                config_line = sys.stdin.readline().strip()
-                if config_line and config_line.startswith('{'):
-                    config = json.loads(config_line)
-                    print(f"DEBUG: Loaded config from stdin", flush=True)
-            except Exception as e:
-                print(f"DEBUG: No config from stdin: {e}", flush=True)
-        
-        # Method 3: Check environment variables (existing method)
+        # Method 2: Check environment variables (existing method)
         if not config:
             if os.getenv("REDDIT_CLIENT_ID"):
                 config["REDDIT_CLIENT_ID"] = os.getenv("REDDIT_CLIENT_ID")
@@ -589,7 +578,7 @@ def main():
             if config:
                 print(f"DEBUG: Loaded config from environment variables", flush=True)
         
-        # Method 4: Check for config file
+        # Method 3: Check for config file
         if not config:
             config_file = os.getenv("MCP_CONFIG_FILE", ".mcp-config.json")
             if os.path.exists(config_file):
