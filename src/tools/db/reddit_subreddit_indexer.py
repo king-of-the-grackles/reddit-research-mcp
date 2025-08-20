@@ -46,7 +46,12 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 import aiofiles
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from src.chroma_client import get_chroma_client, get_collection
+try:
+    from src.chroma_client import get_chroma_client, get_collection
+except ImportError:
+    # If running as a script directly
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..'))
+    from src.chroma_client import get_chroma_client, get_collection
 
 # Load environment
 load_dotenv()
