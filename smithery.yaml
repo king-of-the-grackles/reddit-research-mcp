@@ -1,5 +1,6 @@
 runtime: "container"
 
+# For HTTP deployment on Smithery platform
 startCommand:
   type: "http"
   configSchema:
@@ -22,6 +23,27 @@ startCommand:
     REDDIT_CLIENT_ID: "your_client_id_here"
     REDDIT_CLIENT_SECRET: "your_client_secret_here"
     REDDIT_USER_AGENT: "MCP:reddit-research:v1.0 (by /u/yourusername)"
+
+# For STDIO mode via Smithery CLI
+stdio:
+  command: "python"
+  args: ["src/server.py"]
+  configSchema:
+    type: "object"
+    required: ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"]
+    properties:
+      REDDIT_CLIENT_ID:
+        type: "string"
+        title: "Reddit Client ID"
+        description: "Your Reddit application client ID from reddit.com/prefs/apps"
+      REDDIT_CLIENT_SECRET:
+        type: "string"
+        title: "Reddit Client Secret"
+        description: "Your Reddit application client secret"
+      REDDIT_USER_AGENT:
+        type: "string"
+        title: "Reddit User Agent"
+        description: "User agent string for Reddit API (e.g., 'MCP:reddit-research:v1.0')"
 
 build:
   dockerfile: "Dockerfile"
