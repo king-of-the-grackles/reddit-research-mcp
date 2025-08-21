@@ -7,7 +7,6 @@ requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.12.15",
     "praw>=7.7.1",
-    "chromadb>=0.5.0",
     "fastmcp>=0.8.0",
     "openai-agents>=0.2.8",
     "pydantic>=2.0.0",

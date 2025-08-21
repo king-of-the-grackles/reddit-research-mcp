@@ -2,7 +2,6 @@ import praw
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from typing import Dict
 
 def get_reddit_client() -> praw.Reddit:
     """Get configured Reddit client (read-only) from environment."""
@@ -45,30 +44,3 @@ def get_reddit_client() -> praw.Reddit:
     reddit.read_only = True
     
     return reddit
-
-
-def get_chroma_config() -> Dict[str, str]:
-    """Get ChromaDB Cloud configuration from environment.
-    
-    Returns:
-        Dictionary with ChromaDB Cloud configuration
-    """
-    # Method 1: Try environment variables
-    api_key = os.environ.get('CHROMA_API_KEY')
-    tenant = os.environ.get('CHROMA_TENANT')
-    database = os.environ.get('CHROMA_DATABASE')
-    
-    # Method 2: Try loading from .env file (local development)
-    if not api_key:
-        env_path = Path(__file__).parent.parent / '.env'
-        if env_path.exists():
-            load_dotenv(env_path)
-            api_key = os.getenv('CHROMA_API_KEY')
-            tenant = os.getenv('CHROMA_TENANT')
-            database = os.getenv('CHROMA_DATABASE')
-    
-    return {
-        'api_key': api_key,
-        'tenant': tenant,
-        'database': database
-    }
