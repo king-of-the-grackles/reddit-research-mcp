@@ -30,7 +30,9 @@ claude mcp add --scope local --transport http reddit-research-mcp https://reddit
 ```
 
 ### Cursor
-[Click to install](cursor://anysphere.cursor-deeplink/mcp/install?name=reddit-research-mcp&config=eyJ1cmwiOiJodHRwczovL3JlZGRpdC1yZXNlYXJjaC1tY3AuZmFzdG1jcC5hcHAvbWNwIn0%3D)
+```
+cursor://anysphere.cursor-deeplink/mcp/install?name=reddit-research-mcp&config=eyJ1cmwiOiJodHRwczovL3JlZGRpdC1yZXNlYXJjaC1tY3AuZmFzdG1jcC5hcHAvbWNwIn0%3D
+```
 
 ### OpenAI Codex CLI
 ```bash
