@@ -23,7 +23,12 @@ class ChromaProxyClient:
             'CHROMA_PROXY_URL', 
             'https://reddit-mcp-vector-db.onrender.com'
         )
+        self.api_key = os.getenv('CHROMA_PROXY_API_KEY')
         self.session = requests.Session()
+        
+        # Set API key in session headers if provided
+        if self.api_key:
+            self.session.headers['X-API-Key'] = self.api_key
     
     def query(self, query_texts: List[str], n_results: int = 10) -> Dict[str, Any]:
         """Query through proxy."""
@@ -35,6 +40,15 @@ class ChromaProxyClient:
             )
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 401:
+                raise ConnectionError("Authentication failed: API key required. Set CHROMA_PROXY_API_KEY environment variable.")
+            elif e.response.status_code == 403:
+                raise ConnectionError("Authentication failed: Invalid API key provided.")
+            elif e.response.status_code == 429:
+                raise ConnectionError("Rate limit exceeded. Please wait before retrying.")
+            else:
+                raise ConnectionError(f"Failed to query vector database: HTTP {e.response.status_code}")
         except requests.exceptions.RequestException as e:
             raise ConnectionError(f"Failed to query vector database: {e}")
     
@@ -48,6 +62,10 @@ class ChromaProxyClient:
             response = self.session.get(f"{self.url}/stats", timeout=5)
             if response.status_code == 200:
                 return response.json().get('total_subreddits', 20000)
+            elif response.status_code == 401:
+                print("Warning: Stats endpoint requires authentication. Using default count.")
+            elif response.status_code == 403:
+                print("Warning: Invalid API key for stats endpoint. Using default count.")
         except:
             pass
         return 20000

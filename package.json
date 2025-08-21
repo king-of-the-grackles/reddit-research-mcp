@@ -34,13 +34,25 @@
           "type": "string",
           "title": "Reddit User Agent",
           "description": "User agent string for Reddit API (e.g., 'MCP:reddit-research:v1.0')"
+        },
+        "CHROMA_PROXY_URL": {
+          "type": "string",
+          "title": "ChromaDB Proxy URL",
+          "description": "URL of the ChromaDB proxy server (optional, uses default if not set)"
+        },
+        "CHROMA_PROXY_API_KEY": {
+          "type": "string",
+          "title": "ChromaDB Proxy API Key",
+          "description": "API key for authenticating with the ChromaDB proxy server"
         }
       }
     },
     "exampleConfig": {
       "REDDIT_CLIENT_ID": "your_client_id_here",
       "REDDIT_CLIENT_SECRET": "your_client_secret_here",
-      "REDDIT_USER_AGENT": "MCP:reddit-research:v1.0 (by /u/yourusername)"
+      "REDDIT_USER_AGENT": "MCP:reddit-research:v1.0 (by /u/yourusername)",
+      "CHROMA_PROXY_URL": "https://reddit-mcp-vector-db.onrender.com",
+      "CHROMA_PROXY_API_KEY": "your_proxy_api_key_here"
     }
   }
 }
