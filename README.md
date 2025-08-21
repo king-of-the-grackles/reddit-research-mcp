@@ -20,61 +20,32 @@
 
 ---
 
-## 🚀 Quick Start (60 Seconds)
+## 🚀 Quick Setup (60 Seconds)
 
-### Prerequisites
-- 🐍 Python 3.11+
-- 🔑 Reddit API credentials ([Get them here](https://www.reddit.com/prefs/apps) - takes 2 minutes)
+**No credentials or configuration needed!** Connect to our hosted server:
 
-### Installation
-
+### Claude Code
 ```bash
-# 1. Clone the repository
-git clone https://github.com/king-of-the-grackles/reddit-research-mcp.git
-cd reddit-research-mcp
-
-# 2. Install dependencies
-pip install uv
-uv sync
-
-# 3. Add your Reddit credentials
-cp .env.sample .env
-# Edit .env with your credentials
-
-# 4. Run the server
-uv run src/server.py
+claude mcp add --scope local --transport http reddit-research-mcp https://reddit-research-mcp.fastmcp.app/mcp
 ```
 
----
+### Cursor
+[Click to install](cursor://anysphere.cursor-deeplink/mcp/install?name=reddit-research-mcp&config=eyJ1cmwiOiJodHRwczovL3JlZGRpdC1yZXNlYXJjaC1tY3AuZmFzdG1jcC5hcHAvbWNwIn0%3D)
 
-## 🔑 Getting Your Reddit API Credentials
+### OpenAI Codex CLI
+```bash
+codex -c 'mcp_servers.reddit-research-mcp.command=npx' \
+      -c 'mcp_servers.reddit-research-mcp.args=["-y", "mcp-remote@latest", "https://reddit-research-mcp.fastmcp.app/mcp"]'
+```
 
-Before using the server, you'll need Reddit API credentials. This takes about 2 minutes:
+### Gemini CLI
+```bash
+gemini mcp add reddit-research-mcp https://reddit-research-mcp.fastmcp.app/mcp --transport http
+```
 
-1. **Go to Reddit App Preferences**
-   - Visit [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps) while logged into Reddit
-   
-2. **Create a New App**
-   - Click "Create App" or "Create Another App"
-   - Fill in the form:
-     - **Name**: `MCP Research Tool` (or any name you prefer)
-     - **App Type**: Select `script` (for personal use)
-     - **Description**: Optional - can leave blank
-     - **About URL**: Optional - can leave blank
-     - **Redirect URI**: `http://localhost:8080` (required but not used)
-   - Click "Create app"
+### Direct MCP Server URL
+For other AI assistants: `https://reddit-research-mcp.fastmcp.app/mcp`
 
-3. **Get Your Credentials**
-   - **Client ID**: The string under "personal use script" (looks like: `abc123def456`)
-   - **Client Secret**: The string next to "secret" (looks like: `ghi789jkl012mno345pqr678`)
-   - **User Agent**: Create one like: `MCP:research:v1.0 (by /u/yourusername)`
-
-### Security Notes
-
-- ✅ The server only requests read-only access to public Reddit data
-- 🚫 No Reddit account login required - the app uses app-only authentication
-
----
 
 ## 🎨 Key Features
 
@@ -111,25 +82,16 @@ A specialized Claude Code agent that conducts end-to-end research:
 # → Saves to /reports/cryptocurrency-regulation-2025-01-19.md
 ```
 
-### 🏗️ **Three-Layer Architecture**
-Guides LLMs through complex operations with built-in error prevention:
-
-1. **Discovery** → Find relevant resources
-2. **Requirements** → Validate parameters
-3. **Execution** → Perform operations safely
-
 ---
 
 ## 📖 How to Use
 
-### 🔌 Claude Code Integration
+### 🔌 Integration
+
+Once connected (via hosted or local setup), the server is ready to use. Verify your connection:
 
 ```bash
-# Add the server to Claude Code
-claude mcp add -s user -t stdio reddit-research-mcp \
-  uv run fastmcp run /path/to/reddit-research-mcp/src/server.py
-
-# Verify connection
+# For Claude Code
 claude mcp list
 ```
 
@@ -182,17 +144,22 @@ execute_operation("fetch_comments", {
 reddit-research-mcp/
 ├── 📁 src/
 │   ├── 🚀 server.py          # FastMCP server
-│   ├── 🔧 config.py          # Reddit client configuration
+│   ├── 🔧 config.py          # Reddit & ChromaDB configuration
+│   ├── 📊 chroma_client.py   # ChromaDB Cloud proxy client
 │   ├── 📚 resources.py       # MCP resources
+│   ├── 🎭 models.py          # Data models
 │   └── 🛠️ tools/
 │       ├── 🔍 search.py      # Search operations
 │       ├── 📝 posts.py       # Post fetching
 │       ├── 💬 comments.py    # Comment retrieval
-│       ├── 🎯 discover.py    # Subreddit discovery
-│       └── 🗄️ db/           # Vector database (20k+ subreddits)
+│       └── 🎯 discover.py    # Subreddit discovery (20k+ indexed)
+├── 🧪 tests/                 # Test suite
 ├── 📊 reports/               # Generated research reports
 ├── 📋 specs/                 # Architecture documentation
-└── 🔐 .env                  # Your credentials (git-ignored)
+│   ├── agentic-discovery-architecture.md
+│   ├── reddit-research-agent-spec.md
+│   ├── deep-research-reddit-architecture.md
+│   └── chroma-proxy-architecture.md
 ```
 
 ---
@@ -221,25 +188,25 @@ reddit-research-mcp/
 
 ---
 
-## 🔧 Advanced Configuration
+## 🗄️ Vector Database Architecture
 
-### Environment Variables
-```env
-# Required
-REDDIT_CLIENT_ID=your_client_id
-REDDIT_CLIENT_SECRET=your_secret
+This server includes a **pre-indexed database** with 20,000+ subreddits for semantic search:
 
-# Optional
-REDDIT_USER_AGENT=YourApp/1.0  # Customize user agent
-```
+- **Zero Setup**: Works automatically via our proxy server
+- **No API Keys**: The vector database requires no configuration
+- **Instant Discovery**: Find relevant communities using semantic similarity
+
+---
+
+## 🔧 Configuration
+
+**No configuration required!** The hosted server handles all credentials and settings automatically.
 
 ### MCP Resources
 
 Access comprehensive server documentation:
 
 - 📖 `reddit://server-info` - Complete server capabilities, tools, prompts, and usage examples
-
----
 
 ## 🐛 Troubleshooting
 
@@ -257,23 +224,27 @@ Access comprehensive server documentation:
 - 📖 [Architecture Overview](specs/agentic-discovery-architecture.md)
 - 🤖 [Research Agent Details](specs/reddit-research-agent-spec.md)
 - 🔍 [Deep Research Architecture](specs/deep-research-reddit-architecture.md)
-- 🛠️ [API Reference](ai-docs/reddit-mcp-tools-reference.md)
+- 🗄️ [ChromaDB Proxy Architecture](specs/chroma-proxy-architecture.md)
 
 ---
 
-## 🤝 Contributing
+## 🧪 Development
+
+### Running Tests
+```bash
+uv run pytest tests/
+```
+
+### Contributing
 
 Contributions welcome! This project uses:
 - 🐍 Python 3.11+ with type hints
 - 📦 uv for package management
 - 🚀 FastMCP for the server framework
 - 🗄️ ChromaDB for vector search
+- 🧪 Tests required for new features
 
 ---
-
-## 📄 License
-
-MIT License - See [LICENSE](LICENSE) file for details
 
 ---
 
@@ -281,8 +252,6 @@ MIT License - See [LICENSE](LICENSE) file for details
   
 **Built with ❤️ for Reddit researchers and data enthusiasts**
 
-[Report Issues](https://github.com/king-of-the-grackles/reddit-research-mcp/issues) • 
-[Request Features](https://github.com/king-of-the-grackles/reddit-research-mcp/issues) • 
-[Star on GitHub](https://github.com/king-of-the-grackles/reddit-research-mcp)
+[Report Issues] • [Request Features] • [Star on GitHub]
 
 </div>
