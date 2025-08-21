@@ -12,7 +12,7 @@
 
 **Stop manually searching through Reddit.** This MCP server transforms Reddit into a structured research tool that:
 
-- 🎯 **Discovers relevant communities you didn't know existed** - Semantic search across 20,000+ indexed subreddits
+- 🎯 **Discovers relevant communities you didn't know existed** - Semantic search across 22,000+ indexed subreddits
 - ⚡ **Reduces API calls by 70%** - Batch operations fetch from 15 subreddits simultaneously  
 - 🤖 **Automates comprehensive research** - Built-in Claude Code agent analyzes 100+ posts and comments
 - 📊 **Produces professional reports** - Markdown output with full citations and sentiment analysis
@@ -52,7 +52,7 @@ For other AI assistants: `https://reddit-research-mcp.fastmcp.app/mcp`
 ## 🎨 Key Features
 
 ### 🔍 **Semantic Subreddit Discovery**
-Unlike Reddit's limited native search, our vector database indexes 20,000+ active communities, understanding context and relationships to find relevant subreddits you never knew existed.
+Unlike Reddit's limited native search, our vector database indexes 22,000+ active communities, understanding context and relationships to find relevant subreddits you never knew existed.
 
 ```python
 # Discover communities about "sustainable living"
@@ -90,7 +90,7 @@ A specialized Claude Code agent that conducts end-to-end research:
 
 ### 🔌 Integration
 
-Once connected (via hosted or local setup), the server is ready to use. Verify your connection:
+Once connected via the hosted setup, the server is ready to use. Verify your connection:
 
 ```bash
 # For Claude Code
@@ -146,8 +146,8 @@ execute_operation("fetch_comments", {
 reddit-research-mcp/
 ├── 📁 src/
 │   ├── 🚀 server.py          # FastMCP server
-│   ├── 🔧 config.py          # Reddit & ChromaDB configuration
-│   ├── 📊 chroma_client.py   # ChromaDB Cloud proxy client
+│   ├── 🔧 config.py          # Reddit configuration
+│   ├── 📊 chroma_client.py   # Vector database proxy client
 │   ├── 📚 resources.py       # MCP resources
 │   ├── 🎭 models.py          # Data models
 │   └── 🛠️ tools/
@@ -192,10 +192,10 @@ reddit-research-mcp/
 
 ## 🗄️ Vector Database Architecture
 
-This server includes a **pre-indexed database** with 20,000+ subreddits for semantic search:
+This server includes a **pre-indexed database** with 22,000+ subreddits for semantic search:
 
-- **Zero Setup**: Works automatically via our proxy server
-- **No API Keys**: The vector database requires no configuration
+- **Zero Setup**: Works automatically via our authenticated proxy server
+- **Secure Access**: Protected by API key authentication
 - **Instant Discovery**: Find relevant communities using semantic similarity
 
 ---
@@ -214,7 +214,7 @@ Access comprehensive server documentation:
 
 | Issue | Solution |
 |-------|----------|
-| 🔴 "Reddit API credentials not found" | Ensure `.env` file exists with valid credentials |
+| 🔴 "Authentication failed" | The hosted service handles authentication automatically |
 | ⏱️ Rate limit errors | Automatic retry after 60 seconds |
 | 🚫 "Subreddit not found" | Check spelling (use "technology" not "r/technology") |
 | 🔌 MCP connection failed | Verify full path in Claude Code command |
@@ -232,18 +232,41 @@ Access comprehensive server documentation:
 
 ## 🧪 Development
 
-### Running Tests
-```bash
-uv run pytest tests/
-```
+### For Contributors
 
-### Contributing
+If you're contributing to this project:
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/king-of-the-grackles/reddit-research-mcp.git
+   cd reddit-research-mcp
+   ```
+
+2. **Install dependencies**
+   ```bash
+   pip install uv
+   uv sync
+   ```
+
+3. **Set up authentication** (contact maintainers for access)
+   ```bash
+   export CHROMA_PROXY_API_KEY="your-api-key"
+   ```
+
+4. **Run tests**
+   ```bash
+   uv run pytest tests/
+   ```
+
+**Note**: The vector database proxy requires authentication. Contact the maintainers for API access if you're contributing.
+
+### Tech Stack
 
 Contributions welcome! This project uses:
 - 🐍 Python 3.11+ with type hints
 - 📦 uv for package management
 - 🚀 FastMCP for the server framework
-- 🗄️ ChromaDB for vector search
+- 🗄️ Vector search via authenticated proxy
 - 🧪 Tests required for new features
 
 ---
