@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from urllib.parse import parse_qs
+from typing import Dict, Optional
 
 def get_reddit_client(config: dict = None) -> praw.Reddit:
     """Get configured Reddit client (read-only) with Smithery support.
@@ -66,3 +67,50 @@ def get_reddit_client(config: dict = None) -> praw.Reddit:
     reddit.read_only = True
     
     return reddit
+
+
+def get_chroma_config(config: Optional[Dict] = None) -> Dict[str, str]:
+    """Get ChromaDB Cloud configuration from environment or config dict.
+    
+    Args:
+        config: Optional configuration dict (for Smithery compatibility)
+    
+    Returns:
+        Dictionary with ChromaDB Cloud configuration
+    """
+    # Method 1: Use passed config dict (from Smithery middleware)
+    if config:
+        return {
+            'api_key': config.get('CHROMA_API_KEY'),
+            'tenant': config.get('CHROMA_TENANT'),
+            'database': config.get('CHROMA_DATABASE')
+        }
+    
+    # Method 2: Try environment variables
+    api_key = os.environ.get('CHROMA_API_KEY')
+    tenant = os.environ.get('CHROMA_TENANT')
+    database = os.environ.get('CHROMA_DATABASE')
+    
+    # Method 3: Try query string (alternative Smithery method)
+    if not api_key:
+        query_string = os.environ.get('QUERY_STRING', '')
+        if query_string:
+            params = parse_qs(query_string)
+            api_key = params.get('CHROMA_API_KEY', [None])[0]
+            tenant = params.get('CHROMA_TENANT', [None])[0]
+            database = params.get('CHROMA_DATABASE', [None])[0]
+    
+    # Method 4: Try loading from .env file (local development)
+    if not api_key:
+        env_path = Path(__file__).parent.parent / '.env'
+        if env_path.exists():
+            load_dotenv(env_path)
+            api_key = os.getenv('CHROMA_API_KEY')
+            tenant = os.getenv('CHROMA_TENANT')
+            database = os.getenv('CHROMA_DATABASE')
+    
+    return {
+        'api_key': api_key,
+        'tenant': tenant,
+        'database': database
+    }

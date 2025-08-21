@@ -2313,6 +2313,7 @@ dependencies = [
     { name = "praw" },
     { name = "pydantic" },
     { name = "python-dotenv" },
+    { name = "requests" },
     { name = "starlette" },
     { name = "uvicorn" },
 ]
@@ -2336,6 +2337,7 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.14.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
+    { name = "requests", specifier = ">=2.31.0" },
     { name = "starlette", specifier = ">=0.32.0" },
     { name = "uvicorn", specifier = ">=0.30.0" },
 ]

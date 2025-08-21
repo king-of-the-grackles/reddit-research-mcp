@@ -36,6 +36,9 @@ ENV TRANSPORT=http
 ENV PORT=8080
 ENV PYTHONUNBUFFERED=1
 
+# Set default proxy URL for vector database access
+ENV CHROMA_PROXY_URL=https://reddit-chroma-proxy.onrender.com
+
 # Expose port for HTTP mode
 EXPOSE 8080
 

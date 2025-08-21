@@ -2,9 +2,8 @@
 
 import os
 import json
-import chromadb
-from chromadb.config import Settings
 from typing import Dict, List, Optional, Union, Any
+from ..chroma_client import get_chroma_client, get_collection
 
 
 def discover_subreddits(
@@ -31,17 +30,8 @@ def discover_subreddits(
     """
     # Initialize ChromaDB client
     try:
-        db_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "db", "data", "subreddit_vectors"
-        )
-        
-        client = chromadb.PersistentClient(
-            path=db_path,
-            settings=Settings(anonymized_telemetry=False)
-        )
-        
-        collection = client.get_collection("reddit_subreddits")
+        client = get_chroma_client()
+        collection = get_collection("reddit_subreddits", client)
         
     except Exception as e:
         return {
@@ -261,17 +251,8 @@ def validate_subreddit(
     
     try:
         # Search for exact match in vector database
-        db_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "db", "data", "subreddit_vectors"
-        )
-        
-        client = chromadb.PersistentClient(
-            path=db_path,
-            settings=Settings(anonymized_telemetry=False)
-        )
-        
-        collection = client.get_collection("reddit_subreddits")
+        client = get_chroma_client()
+        collection = get_collection("reddit_subreddits", client)
         
         # Search for the exact subreddit name
         results = collection.query(
