@@ -5,6 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastMCP](https://img.shields.io/badge/Built%20with-FastMCP-orange.svg)](https://github.com/jlowin/fastmcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![smithery badge](https://smithery.ai/badge/@king-of-the-grackles/reddit-research-mcp)](https://smithery.ai/server/@king-of-the-grackles/reddit-research-mcp)
 
 ---
 
@@ -23,6 +24,14 @@
 ## 🚀 Quick Setup (60 Seconds)
 
 **No credentials or configuration needed!** Connect to our hosted server:
+
+### Installing via Smithery
+
+To install Reddit Research Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@king-of-the-grackles/reddit-research-mcp):
+
+```bash
+npx -y @smithery/cli install @king-of-the-grackles/reddit-research-mcp --client claude
+```
 
 ### Claude Code
 ```bash
