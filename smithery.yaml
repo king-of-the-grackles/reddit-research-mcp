@@ -1,0 +1,29 @@
+# Smithery configuration file: https://smithery.ai/docs/build/project-config
+
+build:
+  dockerfile: Dockerfile
+  dockerBuildPath: .
+runtime: container
+startCommand:
+  type: http
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required: []
+    properties:
+      REDDIT_CLIENT_ID:
+        type: string
+        default: ""
+        description: Your Reddit application client ID from reddit.com/prefs/apps
+      REDDIT_USER_AGENT:
+        type: string
+        default: RedditResearchMCP/1.0 (via Smithery)
+        description: User agent string for Reddit API (defaults to 'RedditResearchMCP/1.0')
+      REDDIT_CLIENT_SECRET:
+        type: string
+        default: ""
+        description: Your Reddit application client secret
+  exampleConfig:
+    REDDIT_CLIENT_ID: your_client_id_here
+    REDDIT_USER_AGENT: MCP:reddit-research:v1.0 (by /u/yourusername)
+    REDDIT_CLIENT_SECRET: your_client_secret_here
