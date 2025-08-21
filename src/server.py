@@ -487,7 +487,7 @@ def reddit_research(research_request: str) -> List[Message]:
     
     return [
         Message(
-            role="system", 
+            role="assistant", 
             content=RESEARCH_WORKFLOW_PROMPT.format(
                 research_request=research_request,
                 timestamp=timestamp
