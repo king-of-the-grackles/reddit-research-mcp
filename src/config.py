@@ -2,42 +2,20 @@ import praw
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from urllib.parse import parse_qs
-from typing import Dict, Optional
+from typing import Dict
 
-def get_reddit_client(config: dict = None) -> praw.Reddit:
-    """Get configured Reddit client (read-only) with Smithery support.
-    
-    Args:
-        config: Optional configuration dict from Smithery middleware
-    """
+def get_reddit_client() -> praw.Reddit:
+    """Get configured Reddit client (read-only) from environment."""
     client_id = None
     client_secret = None
     user_agent = None
     
-    # Method 1: Use passed config dict (from Smithery middleware)
-    if config:
-        client_id = config.get('REDDIT_CLIENT_ID')
-        client_secret = config.get('REDDIT_CLIENT_SECRET')
-        user_agent = config.get('REDDIT_USER_AGENT', 'RedditResearchMCP/1.0 (Smithery)')
+    # Method 1: Try environment variables
+    client_id = os.environ.get("REDDIT_CLIENT_ID")
+    client_secret = os.environ.get("REDDIT_CLIENT_SECRET")
+    user_agent = os.environ.get("REDDIT_USER_AGENT", "RedditMCP/1.0")
     
-    # Method 2: Try environment variables (Docker/Kubernetes)
-    if not client_id or not client_secret:
-        client_id = os.environ.get("REDDIT_CLIENT_ID")
-        client_secret = os.environ.get("REDDIT_CLIENT_SECRET")
-        user_agent = os.environ.get("REDDIT_USER_AGENT", "RedditMCP/1.0")
-    
-    # Method 3: Try query string (alternative Smithery method)
-    if not client_id or not client_secret:
-        query_string = os.environ.get('QUERY_STRING', '')
-        if query_string:
-            params = parse_qs(query_string)
-            client_id = params.get('REDDIT_CLIENT_ID', [None])[0]
-            client_secret = params.get('REDDIT_CLIENT_SECRET', [None])[0]
-            if not user_agent:
-                user_agent = params.get('REDDIT_USER_AGENT', ['RedditResearchMCP/1.0'])[0]
-    
-    # Method 4: Try loading from .env file (local development)
+    # Method 2: Try loading from .env file (local development)
     if not client_id or not client_secret:
         # Find .env file in project root
         env_path = Path(__file__).parent.parent / '.env'
@@ -69,38 +47,18 @@ def get_reddit_client(config: dict = None) -> praw.Reddit:
     return reddit
 
 
-def get_chroma_config(config: Optional[Dict] = None) -> Dict[str, str]:
-    """Get ChromaDB Cloud configuration from environment or config dict.
-    
-    Args:
-        config: Optional configuration dict (for Smithery compatibility)
+def get_chroma_config() -> Dict[str, str]:
+    """Get ChromaDB Cloud configuration from environment.
     
     Returns:
         Dictionary with ChromaDB Cloud configuration
     """
-    # Method 1: Use passed config dict (from Smithery middleware)
-    if config:
-        return {
-            'api_key': config.get('CHROMA_API_KEY'),
-            'tenant': config.get('CHROMA_TENANT'),
-            'database': config.get('CHROMA_DATABASE')
-        }
-    
-    # Method 2: Try environment variables
+    # Method 1: Try environment variables
     api_key = os.environ.get('CHROMA_API_KEY')
     tenant = os.environ.get('CHROMA_TENANT')
     database = os.environ.get('CHROMA_DATABASE')
     
-    # Method 3: Try query string (alternative Smithery method)
-    if not api_key:
-        query_string = os.environ.get('QUERY_STRING', '')
-        if query_string:
-            params = parse_qs(query_string)
-            api_key = params.get('CHROMA_API_KEY', [None])[0]
-            tenant = params.get('CHROMA_TENANT', [None])[0]
-            database = params.get('CHROMA_DATABASE', [None])[0]
-    
-    # Method 4: Try loading from .env file (local development)
+    # Method 2: Try loading from .env file (local development)
     if not api_key:
         env_path = Path(__file__).parent.parent / '.env'
         if env_path.exists():

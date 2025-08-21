@@ -4,11 +4,8 @@ from typing import Optional, Literal, List, Union, Dict, Any, Annotated
 import sys
 import os
 import json
-import uvicorn
 from pathlib import Path
 from datetime import datetime
-from starlette.middleware.cors import CORSMiddleware
-from src.middleware import SmitheryConfigMiddleware
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -19,20 +16,6 @@ from src.tools.posts import fetch_subreddit_posts, fetch_multiple_subreddits
 from src.tools.comments import fetch_submission_with_comments
 from src.tools.discover import discover_subreddits
 from src.resources import register_resources
-
-# Global variable to store Smithery config
-smithery_config = {}
-
-
-def handle_config(config: dict):
-    """Handle configuration from Smithery."""
-    global smithery_config
-    smithery_config = config
-    
-    # Reinitialize Reddit client with new config
-    initialize_reddit_client()
-    
-    print(f"Config updated with keys: {list(config.keys())}")
 
 
 # Initialize MCP server
@@ -66,9 +49,9 @@ reddit = None
 
 
 def initialize_reddit_client():
-    """Initialize or update Reddit client with current config."""
+    """Initialize Reddit client with environment config."""
     global reddit
-    reddit = get_reddit_client(smithery_config if smithery_config else None)
+    reddit = get_reddit_client()
     # Register resources with the new client
     register_resources(mcp, reddit)
 
@@ -519,89 +502,21 @@ def reddit_research(research_request: str) -> List[Message]:
 
 def main():
     """Main entry point for the server."""
-    transport_mode = os.environ.get("TRANSPORT", "stdio")
+    print("Reddit MCP Server starting...", flush=True)
     
-    if transport_mode == "http":
-        # HTTP mode for Smithery deployment
-        print("Reddit MCP Server starting in HTTP mode...", flush=True)
-        
-        # Get the Starlette app from FastMCP (supports SSE/streaming by default)
-        app = mcp.http_app()
-        
-        # Add CORS middleware for browser compatibility
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=["*"],
-            allow_credentials=True,
-            allow_methods=["GET", "POST", "OPTIONS"],
-            allow_headers=["*"],
-            expose_headers=["mcp-session-id", "mcp-protocol-version"],
-            max_age=86400,
-        )
-        
-        # Apply custom middleware for Smithery config extraction
-        app = SmitheryConfigMiddleware(app, handle_config)
-        
-        # Get port from environment variable
-        port = int(os.environ.get("PORT", 8080))
-        print(f"Listening on port {port}")
-        
-        # Run with uvicorn
-        uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
-    else:
-        # STDIO mode for local development and Smithery CLI
-        print("Reddit MCP Server starting in STDIO mode...", flush=True)
-        
-        config = {}
-        
-        # Method 1: Check for JSON config passed as command-line argument
-        # Smithery CLI might pass config as: python server.py '{"REDDIT_CLIENT_ID":"xxx"}'
-        if len(sys.argv) > 1:
-            try:
-                potential_config = sys.argv[1]
-                if potential_config.startswith('{'):
-                    config = json.loads(potential_config)
-                    print(f"DEBUG: Loaded config from command line argument", flush=True)
-            except json.JSONDecodeError:
-                print(f"DEBUG: Failed to parse command line argument as JSON", flush=True)
-            except Exception as e:
-                print(f"DEBUG: Error processing command line config: {e}", flush=True)
-        
-        # Method 2: Check environment variables (existing method)
-        if not config:
-            if os.getenv("REDDIT_CLIENT_ID"):
-                config["REDDIT_CLIENT_ID"] = os.getenv("REDDIT_CLIENT_ID")
-            if os.getenv("REDDIT_CLIENT_SECRET"):
-                config["REDDIT_CLIENT_SECRET"] = os.getenv("REDDIT_CLIENT_SECRET")
-            if os.getenv("REDDIT_USER_AGENT"):
-                config["REDDIT_USER_AGENT"] = os.getenv("REDDIT_USER_AGENT")
-            if config:
-                print(f"DEBUG: Loaded config from environment variables", flush=True)
-        
-        # Method 3: Check for config file
-        if not config:
-            config_file = os.getenv("MCP_CONFIG_FILE", ".mcp-config.json")
-            if os.path.exists(config_file):
-                try:
-                    with open(config_file, 'r') as f:
-                        config = json.load(f)
-                    print(f"DEBUG: Loaded config from file: {config_file}", flush=True)
-                except Exception as e:
-                    print(f"DEBUG: Failed to load config file: {e}", flush=True)
-        
-        # Initialize with whatever config we found
-        if config:
-            print(f"DEBUG: Initializing with config keys: {list(config.keys())}", flush=True)
-            handle_config(config)
-        else:
-            print("WARNING: No configuration found. Server will run with limited functionality.", flush=True)
-            print("Please provide Reddit API credentials via:", flush=True)
-            print("  1. Command line argument: python server.py '{\"REDDIT_CLIENT_ID\":\"...\", ...}'", flush=True)
-            print("  2. Environment variables: REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT", flush=True)
-            print("  3. Config file: .mcp-config.json", flush=True)
-        
-        # Run with stdio transport
-        mcp.run()
+    # Try to initialize the Reddit client with available configuration
+    try:
+        initialize_reddit_client()
+        print("Reddit client initialized successfully", flush=True)
+    except Exception as e:
+        print(f"WARNING: Failed to initialize Reddit client: {e}", flush=True)
+        print("Server will run with limited functionality.", flush=True)
+        print("\nPlease provide Reddit API credentials via:", flush=True)
+        print("  1. Environment variables: REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT", flush=True)
+        print("  2. Config file: .mcp-config.json", flush=True)
+    
+    # Run with stdio transport
+    mcp.run()
 
 
 if __name__ == "__main__":
