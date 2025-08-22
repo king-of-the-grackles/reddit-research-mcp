@@ -1,6 +1,6 @@
 # 🔍 Reddit Research MCP Server
 
-> **Transform Reddit into your personal research assistant** - Semantic search across 20,000+ communities with AI-powered analysis
+**Turn Reddit's chaos into structured insights with full citations**
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastMCP](https://img.shields.io/badge/Built%20with-FastMCP-orange.svg)](https://github.com/jlowin/fastmcp)
@@ -8,15 +8,9 @@
 
 ---
 
-## ✨ Why This Server?
+Your customers are on Reddit right now, comparing you to competitors, sharing pain points, requesting features. But finding those insights means hours of manual searching with no way to cite your sources.
 
-**Stop manually searching through Reddit.** This MCP server transforms Reddit into a structured research tool that:
-
-- 🎯 **Discovers relevant communities you didn't know existed** - Semantic search across 22,000+ indexed subreddits
-- ⚡ **Reduces API calls by 70%** - Batch operations fetch from 15 subreddits simultaneously  
-- 🤖 **Automates comprehensive research** - Built-in Claude Code agent analyzes 100+ posts and comments
-- 📊 **Produces professional reports** - Markdown output with full citations and sentiment analysis
-- 🔗 **Provides complete traceability** - Every insight linked to its Reddit source
+This MCP server turns Reddit into a queryable research database that generates reports with links to every claim. Get comprehensive market research, competitive analysis, and customer insights in minutes instead of hours.
 
 ---
 
@@ -48,60 +42,79 @@ gemini mcp add reddit-research-mcp https://reddit-research-mcp.fastmcp.app/mcp -
 ### Direct MCP Server URL
 For other AI assistants: `https://reddit-research-mcp.fastmcp.app/mcp`
 
+---
 
-## 🎨 Key Features
+## 🎯 What You Can Do
 
-### 🔍 **Semantic Subreddit Discovery**
-Unlike Reddit's limited native search, our vector database indexes 22,000+ active communities, understanding context and relationships to find relevant subreddits you never knew existed.
-
-```python
-# Discover communities about "sustainable living"
-# Returns: ZeroWaste, BuyItForLife, Permaculture, SimpleLiving, and 10+ more
+### Competitive Analysis
 ```
-
-### ⚡ **Intelligent Batch Operations**
-Fetch posts from up to 15 subreddits in a single API call - 70% more efficient than sequential requests.
-
-```python
-# One call instead of fifteen
-execute_operation("fetch_multiple", {
-    "subreddit_names": ["MachineLearning", "artificial", "deeplearning", ...],
-    "limit_per_subreddit": 10
-})
+"What are developers saying about Next.js vs Remix?"
 ```
+→ Get a comprehensive report comparing sentiment, feature requests, pain points, and migration experiences with links to every mentioned discussion.
 
-### 🤖 **Automated Research Agent**
-A specialized Claude Code agent that conducts end-to-end research:
-
-```bash
-# In Claude Code, simply say:
-"Research cryptocurrency regulation on Reddit"
-
-# The agent automatically:
-# → Discovers 15+ relevant crypto communities
-# → Analyzes 100+ posts and comments
-# → Generates a comprehensive report with citations
-# → Saves to /reports/cryptocurrency-regulation-2025-01-19.md
+### Customer Discovery
 ```
+"Find the top complaints about existing CRM tools in small business communities"
+```
+→ Discover unmet needs, feature gaps, and pricing concerns directly from your target market with citations to real user feedback.
+
+### Market Research
+```
+"Analyze sentiment about AI coding assistants across developer communities"
+```
+→ Track adoption trends, concerns, success stories, and emerging use cases with temporal analysis showing how opinions evolved.
+
+### Product Validation
+```
+"What problems are SaaS founders having with subscription billing?"
+```
+→ Identify pain points and validate your solution with evidence from actual discussions, not assumptions.
 
 ---
 
-## 📖 How to Use
+## ✨ Why This Server?
 
-### 🔌 Integration
+**Built for decision-makers who need evidence-based insights.** Every report links back to actual Reddit posts and comments. When you say "users are complaining about X," you'll have 20 links proving it. Check the `/reports` folder for examples of deep-research reports with full citation trails.
 
-Once connected via the hosted setup, the server is ready to use. Verify your connection:
+**Zero-friction setup designed for non-technical users.** Most MCP servers require cloning repos, managing Python environments, and hunting for API keys in developer dashboards. This one? Just paste the URL into Claude and start researching. Our hosted solution means no terminal commands, no credential management, no setup headaches.
 
-```bash
-# For Claude Code
-claude mcp list
-```
+**Semantic search across 20,000+ active subreddits.** Reddit's API caps at 250 search results - useless for comprehensive research. We pre-indexed every active subreddit (2k+ members, active in last 7 days) with vector embeddings. Now you search conceptually across all of Reddit, finding relevant communities you didn't even know existed. Built with the [layered abstraction pattern](https://engineering.block.xyz/blog/build-mcp-tools-like-ogres-with-layers) for scalability.
 
-### 🛠️ Core Operations
+---
+
+## 📊 Example Reports
+
+Real reports generated by this server (with prompts used):
+
+- **[FastMCP Best Practices Analysis](reports/fastmcp-prompts-best-practices-reddit-analysis.md)** - Technical community sentiment analysis with 150+ comments analyzed
+- **[MCP Prompts Guide](reports/mcp-prompts-best-practices-2025-01-16.md)** - Developer patterns and implementation strategies
+- **[FastMCP Community Insights](reports/fastmcp-prompts-best-practices.md)** - Usage patterns across 8 subreddits
+
+Each report includes:
+- Executive summary with confidence levels
+- Temporal analysis showing trend evolution  
+- Direct links to every cited comment/post
+- Community consensus indicators
+
+---
+
+## 📚 Specifications
+
+Some of the AI-generated specs that were used to build this project with Claude Code:
+- 📖 [Architecture Overview](specs/agentic-discovery-architecture.md) - System design and component interaction
+- 🤖 [Research Agent Details](specs/reddit-research-agent-spec.md) - Agent implementation patterns
+- 🔍 [Deep Research Architecture](specs/deep-research-reddit-architecture.md) - Research workflow and citation system
+- 🗄️ [ChromaDB Proxy Architecture](specs/chroma-proxy-architecture.md) - Vector search and authentication layer
+
+---
+
+## Technical Details
+
+<details>
+<summary><strong>🛠️ Core MCP Tools</strong></summary>
 
 #### Discover Communities
 ```python
-# Find subreddits about any topic
 execute_operation("discover_subreddits", {
     "topic": "machine learning",
     "limit": 15
@@ -110,7 +123,6 @@ execute_operation("discover_subreddits", {
 
 #### Search Across Reddit
 ```python
-# Search all of Reddit
 execute_operation("search_all", {
     "query": "ChatGPT experiences",
     "time_filter": "week",
@@ -120,9 +132,8 @@ execute_operation("search_all", {
 
 #### Batch Fetch Posts
 ```python
-# Get posts from multiple subreddits at once
 execute_operation("fetch_multiple", {
-    "subreddit_names": ["technology", "programming", "coding"],
+    "subreddit_names": ["technology", "programming"],
     "limit_per_subreddit": 10,
     "time_filter": "day"
 })
@@ -130,153 +141,52 @@ execute_operation("fetch_multiple", {
 
 #### Deep Dive with Comments
 ```python
-# Analyze full discussions
 execute_operation("fetch_comments", {
     "submission_id": "abc123",
     "comment_limit": 200,
     "sort": "best"
 })
 ```
+</details>
 
----
-
-## 🗂️ Project Structure
+<details>
+<summary><strong>📁 Project Structure</strong></summary>
 
 ```
 reddit-research-mcp/
-├── 📁 src/
-│   ├── 🚀 server.py          # FastMCP server
-│   ├── 🔧 config.py          # Reddit configuration
-│   ├── 📊 chroma_client.py   # Vector database proxy client
-│   ├── 📚 resources.py       # MCP resources
-│   ├── 🎭 models.py          # Data models
-│   └── 🛠️ tools/
-│       ├── 🔍 search.py      # Search operations
-│       ├── 📝 posts.py       # Post fetching
-│       ├── 💬 comments.py    # Comment retrieval
-│       └── 🎯 discover.py    # Subreddit discovery (20k+ indexed)
-├── 🧪 tests/                 # Test suite
-├── 📊 reports/               # Generated research reports
-├── 📋 specs/                 # Architecture documentation
-│   ├── agentic-discovery-architecture.md
-│   ├── reddit-research-agent-spec.md
-│   ├── deep-research-reddit-architecture.md
-│   └── chroma-proxy-architecture.md
+├── src/
+│   ├── server.py          # FastMCP server
+│   ├── config.py          # Reddit configuration
+│   ├── chroma_client.py   # Vector database proxy
+│   ├── resources.py       # MCP resources
+│   ├── models.py          # Data models
+│   └── tools/
+│       ├── search.py      # Search operations
+│       ├── posts.py       # Post fetching
+│       ├── comments.py    # Comment retrieval
+│       └── discover.py    # Subreddit discovery
+├── tests/                 # Test suite
+├── reports/               # Example reports
+└── specs/                 # Architecture docs
 ```
+</details>
 
----
+<details>
+<summary><strong>🚀 Contributing & Tech Stack</strong></summary>
 
-## 🎯 Use Cases
-
-### 📊 Market Research
-```bash
-"Analyze consumer sentiment about electric vehicles across Reddit"
-```
-
-### 🔬 Academic Research
-```bash
-"Research how Reddit communities discuss climate change solutions"
-```
-
-### 💼 Competitive Analysis
-```bash
-"What are developers saying about Next.js vs Remix?"
-```
-
-### 📈 Trend Discovery
-```bash
-"Find emerging AI tools being discussed on Reddit this week"
-```
-
----
-
-## 🗄️ Vector Database Architecture
-
-This server includes a **pre-indexed database** with 22,000+ subreddits for semantic search:
-
-- **Zero Setup**: Works automatically via our authenticated proxy server
-- **Secure Access**: Protected by API key authentication
-- **Instant Discovery**: Find relevant communities using semantic similarity
-
----
-
-## 🔧 Configuration
-
-**No configuration required!** The hosted server handles all credentials and settings automatically.
-
-### MCP Resources
-
-Access comprehensive server documentation:
-
-- 📖 `reddit://server-info` - Complete server capabilities, tools, prompts, and usage examples
-
-## 🐛 Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| 🔴 "Authentication failed" | The hosted service handles authentication automatically |
-| ⏱️ Rate limit errors | Automatic retry after 60 seconds |
-| 🚫 "Subreddit not found" | Check spelling (use "technology" not "r/technology") |
-| 🔌 MCP connection failed | Verify full path in Claude Code command |
-
----
-
-## 📚 Documentation
-
-- 📖 [Architecture Overview](specs/agentic-discovery-architecture.md)
-- 🤖 [Research Agent Details](specs/reddit-research-agent-spec.md)
-- 🔍 [Deep Research Architecture](specs/deep-research-reddit-architecture.md)
-- 🗄️ [ChromaDB Proxy Architecture](specs/chroma-proxy-architecture.md)
-
----
-
-## 🧪 Development
-
-### For Contributors
-
-If you're contributing to this project:
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/king-of-the-grackles/reddit-research-mcp.git
-   cd reddit-research-mcp
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pip install uv
-   uv sync
-   ```
-
-3. **Set up authentication** (contact maintainers for access)
-   ```bash
-   export CHROMA_PROXY_API_KEY="your-api-key"
-   ```
-
-4. **Run tests**
-   ```bash
-   uv run pytest tests/
-   ```
-
-**Note**: The vector database proxy requires authentication. Contact the maintainers for API access if you're contributing.
-
-### Tech Stack
-
-Contributions welcome! This project uses:
-- 🐍 Python 3.11+ with type hints
-- 📦 uv for package management
-- 🚀 FastMCP for the server framework
-- 🗄️ Vector search via authenticated proxy
-- 🧪 Tests required for new features
-
----
+This project uses:
+- Python 3.11+ with type hints
+- FastMCP for the server framework
+- Vector search via authenticated proxy (Render.com)
+- ChromaDB for semantic search
+- PRAW for Reddit API interaction
 
 ---
 
 <div align="center">
-  
-**Built with ❤️ for Reddit researchers and data enthusiasts**
 
-[Report Issues] • [Request Features] • [Star on GitHub]
+**Stop guessing. Start knowing what your market actually thinks.**
+
+[GitHub](https://github.com/king-of-the-grackles/reddit-research-mcp) • [Report Issues](https://github.com/king-of-the-grackles/reddit-research-mcp/issues) • [Request Features](https://github.com/king-of-the-grackles/reddit-research-mcp/issues)
 
 </div>
