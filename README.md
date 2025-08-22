@@ -74,7 +74,7 @@ For other AI assistants: `https://reddit-research-mcp.fastmcp.app/mcp`
 
 ## ✨ Why This Server?
 
-**Built for decision-makers who need evidence-based insights.** Every report links back to actual Reddit posts and comments. When you say "users are complaining about X," you'll have 20 links proving it. Check the `/reports` folder for examples of deep-research reports with full citation trails.
+**Built for decision-makers who need evidence-based insights.** Every report links back to actual Reddit posts and comments. When you say "users are complaining about X," you'll have the receipts to prove it. Check the `/reports` folder for examples of deep-research reports with full citation trails.
 
 **Zero-friction setup designed for non-technical users.** Most MCP servers require cloning repos, managing Python environments, and hunting for API keys in developer dashboards. This one? Just paste the URL into Claude and start researching. Our hosted solution means no terminal commands, no credential management, no setup headaches.
 
