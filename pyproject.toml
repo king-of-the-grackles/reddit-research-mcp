@@ -8,6 +8,7 @@ dependencies = [
     "aiohttp>=3.12.15",
     "praw>=7.7.1",
     "fastmcp>=0.8.0",
+    "langfuse>=2.50.0",
     "openai-agents>=0.2.8",
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",

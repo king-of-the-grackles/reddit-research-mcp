@@ -156,6 +156,26 @@ reddit-research-mcp/
 </details>
 
 <details>
+<summary><strong>📊 Observability & Monitoring (Optional)</strong></summary>
+
+This server includes optional Langfuse integration for comprehensive observability:
+
+- **Complete Operation Tracking**: Trace every operation through the three-layer architecture
+- **Performance Monitoring**: Identify bottlenecks and optimize slow operations
+- **Error Tracking**: Capture failures with full context for debugging
+- **Reddit-Specific Insights**: Track subreddits, confidence scores, post counts
+- **Zero Performance Impact**: Server runs normally even without Langfuse
+
+To enable observability, set your Langfuse credentials:
+```bash
+export LANGFUSE_PUBLIC_KEY=pk-lf-...
+export LANGFUSE_SECRET_KEY=sk-lf-...
+```
+
+See [docs/LANGFUSE_INTEGRATION.md](docs/LANGFUSE_INTEGRATION.md) for complete setup instructions.
+</details>
+
+<details>
 <summary><strong>🚀 Contributing & Tech Stack</strong></summary>
 
 This project uses:
@@ -164,6 +184,7 @@ This project uses:
 - Vector search via authenticated proxy (Render.com)
 - ChromaDB for semantic search
 - PRAW for Reddit API interaction
+- Optional Langfuse observability for tracing and monitoring
 
 ---
 
