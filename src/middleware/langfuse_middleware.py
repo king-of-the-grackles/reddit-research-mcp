@@ -140,22 +140,15 @@ class LangfuseMiddleware(Middleware):
         return context.method == "tools/call"
     
     async def _extract_tool_metadata(self, context: MiddlewareContext, tool_name: str) -> Dict[str, Any]:
-        """Extract tool metadata using FastMCP context."""
+        """Extract basic tool metadata."""
         metadata = {}
         
-        if context.fastmcp_context:
-            try:
-                # Access the tool object to check its metadata
-                tool = await context.fastmcp_context.fastmcp.get_tool(tool_name)
-                
-                metadata = {
-                    "tool_tags": tool.tags if hasattr(tool, 'tags') else [],
-                    "tool_enabled": tool.enabled if hasattr(tool, 'enabled') else True,
-                    "tool_description": tool.description[:100] if hasattr(tool, 'description') else None
-                }
-            except Exception:
-                # Tool not found or error accessing metadata
-                pass
+        # Just return the tool name as metadata
+        # We can't introspect tools via context as get_tool() doesn't exist
+        metadata = {
+            "tool_name": tool_name,
+            "has_context": context.fastmcp_context is not None
+        }
         
         return metadata
     
@@ -165,18 +158,21 @@ class LangfuseMiddleware(Middleware):
         
         if context.fastmcp_context:
             try:
-                # Access server-level information
+                # Access server name via the fastmcp property
+                # According to docs, ctx.fastmcp gives access to the FastMCP server instance
                 server = context.fastmcp_context.fastmcp
                 
-                # Get basic server stats
+                # Only access documented properties
                 metadata["server_info"] = {
                     "name": server.name if hasattr(server, 'name') else "unknown",
-                    "has_tools": hasattr(server, 'list_tools'),
-                    "has_resources": hasattr(server, 'list_resources'),
-                    "has_prompts": hasattr(server, 'list_prompts')
+                    "has_context": True
                 }
             except Exception as e:
                 metadata["metadata_error"] = str(e)
+        else:
+            metadata["server_info"] = {
+                "has_context": False
+            }
         
         return metadata
     
