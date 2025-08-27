@@ -78,7 +78,7 @@ def register_resources(mcp, reddit: praw.Reddit) -> None:
                         "name": "discover_operations",
                         "layer": 1,
                         "description": "Discover available Reddit operations",
-                        "parameters": "None - just call discover_operations()",
+                        "parameters": "NONE - Call without any parameters: discover_operations() NOT discover_operations({})",
                         "purpose": "Shows all available operations and recommended workflows"
                     },
                     {
