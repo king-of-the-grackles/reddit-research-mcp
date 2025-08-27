@@ -44,20 +44,6 @@ Reddit MCP Server - Three-Layer Architecture
 Quick Start: Read reddit://server-info for complete documentation.
 """)
 
-# Initialize observability
-try:
-    langfuse_client = get_langfuse_client()
-    
-    if langfuse_client:
-        from src.middleware.langfuse_middleware import LangfuseMiddleware
-        mcp.add_middleware(LangfuseMiddleware(langfuse_client))
-        print("Langfuse observability enabled", flush=True)
-    else:
-        print("Running without observability", flush=True)
-except Exception as e:
-    print(f"Failed to initialize observability: {e}", flush=True)
-    print("Continuing without observability", flush=True)
-
 # Initialize Reddit client (will be updated with config when available)
 reddit = None
 
@@ -528,6 +514,20 @@ def main():
         print("\nPlease provide Reddit API credentials via:", flush=True)
         print("  1. Environment variables: REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT", flush=True)
         print("  2. Config file: .mcp-config.json", flush=True)
+    
+    # Initialize observability middleware (must be after tool registration)
+    try:
+        langfuse_client = get_langfuse_client()
+        
+        if langfuse_client:
+            from src.middleware.langfuse_middleware import LangfuseMiddleware
+            mcp.add_middleware(LangfuseMiddleware(langfuse_client))
+            print("Langfuse observability enabled", flush=True)
+        else:
+            print("Running without observability", flush=True)
+    except Exception as e:
+        print(f"Failed to initialize observability: {e}", flush=True)
+        print("Continuing without observability", flush=True)
     
     # Run with stdio transport
     mcp.run()
