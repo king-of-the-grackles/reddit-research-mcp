@@ -61,6 +61,12 @@ class LangfuseMiddleware(Middleware):
             # End the span
             span.end()
             
+            # Ensure traces are sent immediately in cloud environments
+            try:
+                self.langfuse.flush()
+            except Exception:
+                pass  # Don't fail if flush fails
+            
             return result
             
         except Exception as e:
@@ -78,6 +84,13 @@ class LangfuseMiddleware(Middleware):
             )
             
             span.end()
+            
+            # Ensure traces are sent immediately in cloud environments
+            try:
+                self.langfuse.flush()
+            except Exception:
+                pass  # Don't fail if flush fails
+            
             raise
     
     async def on_request(self, context: MiddlewareContext, call_next):

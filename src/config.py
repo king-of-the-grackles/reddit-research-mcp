@@ -74,24 +74,30 @@ def get_langfuse_client() -> Optional[object]:
     try:
         from langfuse import Langfuse
         
+        host = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+        
         langfuse = Langfuse(
             public_key=public_key,
             secret_key=secret_key,
-            host=os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com"),
+            host=host,
             # Optional: configure based on environment
             environment=os.environ.get("LANGFUSE_ENVIRONMENT", "production"),
             release=os.environ.get("LANGFUSE_RELEASE", None),
             debug=os.environ.get("LANGFUSE_DEBUG", "false").lower() == "true"
         )
         
-        # Optional: verify connection (not recommended for production)
+        # Don't verify connection in production - it can fail due to network latency
+        # but the client can still send traces asynchronously
         if os.environ.get("LANGFUSE_VERIFY_CONNECTION", "false").lower() == "true":
-            if langfuse.auth_check():
-                print("Langfuse connected successfully", flush=True)
-            else:
-                print("Langfuse authentication failed", flush=True)
-                return None
+            try:
+                if langfuse.auth_check():
+                    print("Langfuse connection verified", flush=True)
+                else:
+                    print("Langfuse auth_check failed (client may still work)", flush=True)
+            except Exception as e:
+                print(f"Langfuse auth_check error: {e} (continuing anyway)", flush=True)
         
+        print(f"Langfuse client initialized for {host}", flush=True)
         return langfuse
         
     except ImportError:

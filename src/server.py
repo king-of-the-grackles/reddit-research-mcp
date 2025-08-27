@@ -517,16 +517,23 @@ def main():
     
     # Initialize observability middleware (must be after tool registration)
     try:
+        # Log environment variable status
+        has_public_key = bool(os.environ.get("LANGFUSE_PUBLIC_KEY"))
+        has_secret_key = bool(os.environ.get("LANGFUSE_SECRET_KEY"))
+        langfuse_host = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+        
+        print(f"Langfuse config: public_key={has_public_key}, secret_key={has_secret_key}, host={langfuse_host}", flush=True)
+        
         langfuse_client = get_langfuse_client()
         
         if langfuse_client:
             from src.middleware.langfuse_middleware import LangfuseMiddleware
             mcp.add_middleware(LangfuseMiddleware(langfuse_client))
-            print("Langfuse observability enabled", flush=True)
+            print(f"✅ Langfuse observability enabled for {langfuse_host}", flush=True)
         else:
-            print("Running without observability", flush=True)
+            print("⚠️ Langfuse client not initialized - check credentials", flush=True)
     except Exception as e:
-        print(f"Failed to initialize observability: {e}", flush=True)
+        print(f"❌ Failed to initialize Langfuse: {e}", flush=True)
         print("Continuing without observability", flush=True)
     
     # Run with stdio transport
