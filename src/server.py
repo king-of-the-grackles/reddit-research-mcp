@@ -61,27 +61,6 @@ try:
 except Exception as e:
     print(f"DEBUG: Reddit init failed: {e}", flush=True)
 
-# Initialize observability middleware at module level for cloud deployment
-try:
-    # Log environment variable status
-    has_public_key = bool(os.environ.get("LANGFUSE_PUBLIC_KEY"))
-    has_secret_key = bool(os.environ.get("LANGFUSE_SECRET_KEY"))
-    langfuse_host = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
-    
-    print(f"Langfuse config: public_key={has_public_key}, secret_key={has_secret_key}, host={langfuse_host}", flush=True)
-    
-    langfuse_client = get_langfuse_client()
-    
-    if langfuse_client:
-        from src.middleware.langfuse_middleware import LangfuseMiddleware
-        mcp.add_middleware(LangfuseMiddleware(langfuse_client))
-        print(f"✅ Langfuse observability enabled for {langfuse_host}", flush=True)
-    else:
-        print("⚠️ Langfuse client not initialized - check credentials", flush=True)
-except Exception as e:
-    print(f"❌ Failed to initialize Langfuse: {e}", flush=True)
-    print("Continuing without observability", flush=True)
-
 
 # Three-Layer Architecture Implementation
 
@@ -519,6 +498,28 @@ def reddit_research(research_request: str) -> List[Message]:
             content=f"Please conduct comprehensive Reddit research to answer: {research_request}"
         )
     ]
+
+# Initialize observability middleware at module level for cloud deployment
+# MUST be after tool registration to avoid interference
+try:
+    # Log environment variable status
+    has_public_key = bool(os.environ.get("LANGFUSE_PUBLIC_KEY"))
+    has_secret_key = bool(os.environ.get("LANGFUSE_SECRET_KEY"))
+    langfuse_host = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+    
+    print(f"Langfuse config: public_key={has_public_key}, secret_key={has_secret_key}, host={langfuse_host}", flush=True)
+    
+    langfuse_client = get_langfuse_client()
+    
+    if langfuse_client:
+        from src.middleware.langfuse_middleware import LangfuseMiddleware
+        mcp.add_middleware(LangfuseMiddleware(langfuse_client))
+        print(f"✅ Langfuse observability enabled for {langfuse_host}", flush=True)
+    else:
+        print("⚠️ Langfuse client not initialized - check credentials", flush=True)
+except Exception as e:
+    print(f"❌ Failed to initialize Langfuse: {e}", flush=True)
+    print("Continuing without observability", flush=True)
 
 
 def main():
