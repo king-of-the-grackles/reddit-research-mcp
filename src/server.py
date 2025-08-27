@@ -1,3 +1,20 @@
+#!/usr/bin/env uv run
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "aiohttp>=3.12.15",
+#     "praw>=7.7.1",
+#     "fastmcp>=0.8.0",
+#     "langfuse>=2.50.0",
+#     "openai-agents>=0.2.8",
+#     "pydantic>=2.0.0",
+#     "python-dotenv>=1.0.0",
+#     "starlette>=0.32.0",
+#     "uvicorn>=0.30.0",
+#     "requests>=2.31.0",
+# ]
+# ///
+
 from fastmcp import FastMCP
 from fastmcp.prompts import Message
 from typing import Optional, Literal, List, Union, Dict, Any, Annotated
@@ -10,7 +27,7 @@ from datetime import datetime
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.config import get_reddit_client
+from src.config import get_reddit_client, get_langfuse_client
 from src.tools.search import search_in_subreddit
 from src.tools.posts import fetch_subreddit_posts, fetch_multiple_subreddits
 from src.tools.comments import fetch_submission_with_comments
@@ -43,6 +60,20 @@ Reddit MCP Server - Three-Layer Architecture
 
 Quick Start: Read reddit://server-info for complete documentation.
 """)
+
+# Initialize observability
+try:
+    langfuse_client = get_langfuse_client()
+    
+    if langfuse_client:
+        from src.middleware.langfuse_middleware import LangfuseMiddleware
+        mcp.add_middleware(LangfuseMiddleware(langfuse_client))
+        print("Langfuse observability enabled", flush=True)
+    else:
+        print("Running without observability", flush=True)
+except Exception as e:
+    print(f"Failed to initialize observability: {e}", flush=True)
+    print("Continuing without observability", flush=True)
 
 # Initialize Reddit client (will be updated with config when available)
 reddit = None
