@@ -1,20 +1,3 @@
-#!/usr/bin/env uv run
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "aiohttp>=3.12.15",
-#     "praw>=7.7.1",
-#     "fastmcp>=0.8.0",
-#     "langfuse>=2.50.0",
-#     "openai-agents>=0.2.8",
-#     "pydantic>=2.0.0",
-#     "python-dotenv>=1.0.0",
-#     "starlette>=0.32.0",
-#     "uvicorn>=0.30.0",
-#     "requests>=2.31.0",
-# ]
-# ///
-
 from fastmcp import FastMCP
 from fastmcp.prompts import Message
 from typing import Optional, Literal, List, Union, Dict, Any, Annotated

@@ -1,13 +1,3 @@
-#!/usr/bin/env uv run
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "praw>=7.7.1",
-#     "python-dotenv>=1.0.0",
-#     "langfuse>=2.50.0",
-# ]
-# ///
-
 import praw
 import os
 from pathlib import Path

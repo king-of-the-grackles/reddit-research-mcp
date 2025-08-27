@@ -1,12 +1,3 @@
-#!/usr/bin/env uv run
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "fastmcp>=0.8.0",
-#     "langfuse>=2.50.0",
-# ]
-# ///
-
 """Langfuse observability middleware for Reddit MCP server."""
 import time
 import json
