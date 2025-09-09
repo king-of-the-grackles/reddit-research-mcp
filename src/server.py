@@ -16,6 +16,7 @@ from src.tools.posts import fetch_subreddit_posts, fetch_multiple_subreddits
 from src.tools.comments import fetch_submission_with_comments
 from src.tools.discover import discover_subreddits
 from src.resources import register_resources
+from src.middleware import EmptyParameterCleanerMiddleware
 
 
 # Initialize MCP server
@@ -23,7 +24,7 @@ mcp = FastMCP("Reddit MCP", instructions="""
 Reddit MCP Server - Three-Layer Architecture
 
 🎯 ALWAYS FOLLOW THIS WORKFLOW:
-1. discover_operations() - See what's available (NO PARAMETERS NEEDED)
+1. discover_operations() - See what's available (no parameters)
 2. get_operation_schema() - Understand requirements  
 3. execute_operation() - Perform the action
 
@@ -41,10 +42,11 @@ Reddit MCP Server - Three-Layer Architecture
 • Single vector search finds semantically related communities
 • Batch operations reduce token usage
 
-⚠️ IMPORTANT: discover_operations() requires NO parameters - call it without any arguments
-
 Quick Start: Read reddit://server-info for complete documentation.
 """)
+
+# Add middleware to handle empty parameters from AI clients
+mcp.add_middleware(EmptyParameterCleanerMiddleware())
 
 # Initialize Reddit client (will be updated with config when available)
 reddit = None
@@ -71,19 +73,11 @@ except Exception as e:
     description="Discover available Reddit operations and recommended workflows",
     annotations={"readOnlyHint": True}
 )
-def discover_operations(
-    properties: Optional[str] = None,  # Common parameter sent by some AI clients
-    _unused: Optional[Any] = None  # Catch-all for other unexpected params
-) -> Dict[str, Any]:
+def discover_operations() -> Dict[str, Any]:
     """
     LAYER 1: Discover what operations this MCP server provides.
     Start here to understand available capabilities.
-    
-    Note: This tool accepts no meaningful parameters. Any provided will be ignored.
     """
-    # Parameters are silently ignored to maintain compatibility with various AI clients
-    # that may incorrectly pass empty parameters to no-argument tools
-    
     return {
         "operations": {
             "discover_subreddits": "Find relevant communities using semantic search",
