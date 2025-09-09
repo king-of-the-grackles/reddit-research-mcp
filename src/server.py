@@ -61,7 +61,8 @@ def initialize_reddit_client():
 try:
     initialize_reddit_client()
 except Exception as e:
-    print(f"DEBUG: Reddit init failed: {e}", flush=True)
+    # Silently continue - initialization will be retried in main()
+    pass
 
 
 # Three-Layer Architecture Implementation
@@ -80,9 +81,8 @@ def discover_operations(
     
     Note: This tool accepts no meaningful parameters. Any provided will be ignored.
     """
-    # Debug logging for unexpected parameters
-    if properties is not None or _unused is not None:
-        print(f"DEBUG: discover_operations received params - properties: {properties}, _unused: {_unused}", flush=True)
+    # Parameters are silently ignored to maintain compatibility with various AI clients
+    # that may incorrectly pass empty parameters to no-argument tools
     
     return {
         "operations": {
