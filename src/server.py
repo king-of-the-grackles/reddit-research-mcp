@@ -23,7 +23,7 @@ mcp = FastMCP("Reddit MCP", instructions="""
 Reddit MCP Server - Three-Layer Architecture
 
 🎯 ALWAYS FOLLOW THIS WORKFLOW:
-1. discover_operations() - See what's available
+1. discover_operations() - See what's available (NO PARAMETERS NEEDED)
 2. get_operation_schema() - Understand requirements  
 3. execute_operation() - Perform the action
 
@@ -40,6 +40,8 @@ Reddit MCP Server - Three-Layer Architecture
 • Use fetch_multiple for 2+ subreddits (70% fewer API calls)
 • Single vector search finds semantically related communities
 • Batch operations reduce token usage
+
+⚠️ IMPORTANT: discover_operations() requires NO parameters - call it without any arguments
 
 Quick Start: Read reddit://server-info for complete documentation.
 """)
@@ -68,11 +70,20 @@ except Exception as e:
     description="Discover available Reddit operations and recommended workflows",
     annotations={"readOnlyHint": True}
 )
-def discover_operations() -> Dict[str, Any]:
+def discover_operations(
+    properties: Optional[str] = None,  # Common parameter sent by some AI clients
+    _unused: Optional[Any] = None  # Catch-all for other unexpected params
+) -> Dict[str, Any]:
     """
     LAYER 1: Discover what operations this MCP server provides.
     Start here to understand available capabilities.
+    
+    Note: This tool accepts no meaningful parameters. Any provided will be ignored.
     """
+    # Debug logging for unexpected parameters
+    if properties is not None or _unused is not None:
+        print(f"DEBUG: discover_operations received params - properties: {properties}, _unused: {_unused}", flush=True)
+    
     return {
         "operations": {
             "discover_subreddits": "Find relevant communities using semantic search",
