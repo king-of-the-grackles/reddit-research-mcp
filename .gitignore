@@ -140,3 +140,7 @@ $RECYCLE.BIN/
 # FastMCP specific
 .fastmcp/
 fastmcp.db
+
+# MCP Registry files
+.mcpregistry_*
+mcp-publisher

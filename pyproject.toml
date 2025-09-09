@@ -1,9 +1,23 @@
 [project]
 name = "reddit-research-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "A minimal Model Context Protocol server for Reddit content access"
 readme = "README.md"
 requires-python = ">=3.11"
+authors = [
+  { name="King of the Grackles", email="chris@ivester.ai" },
+]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "aiohttp>=3.12.15",
     "praw>=7.7.1",
@@ -15,6 +29,12 @@ dependencies = [
     "uvicorn>=0.30.0",
     "requests>=2.31.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/king-of-the-grackles/reddit-research-mcp"
+Repository = "https://github.com/king-of-the-grackles/reddit-research-mcp"
+Issues = "https://github.com/king-of-the-grackles/reddit-research-mcp/issues"
+Documentation = "https://github.com/king-of-the-grackles/reddit-research-mcp#readme"
 
 [project.optional-dependencies]
 dev = [

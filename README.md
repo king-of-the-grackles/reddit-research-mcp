@@ -1,3 +1,5 @@
+mcp-name: io.github.king-of-the-grackles/reddit-research-mcp
+
 # 🔍 Reddit Research MCP Server
 
 **Turn Reddit's chaos into structured insights with full citations**
