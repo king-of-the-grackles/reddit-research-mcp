@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.king-of-the-grackles/reddit-research-mcp",
+  "description": "Turn Reddit's chaos into structured insights with full citations - MCP server for Reddit research",
+  "status": "active",
+  "repository": {
+    "url": "https://github.com/king-of-the-grackles/reddit-research-mcp",
+    "source": "github"
+  },
+  "version": "0.1.1",
+  "packages": [
+    {
+      "registry_type": "pypi",
+      "identifier": "reddit-research-mcp",
+      "version": "0.1.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environment_variables": []
+    }
+  ]
+}
