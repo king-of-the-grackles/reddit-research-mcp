@@ -16,6 +16,7 @@ from src.tools.posts import fetch_subreddit_posts, fetch_multiple_subreddits
 from src.tools.comments import fetch_submission_with_comments
 from src.tools.discover import discover_subreddits
 from src.resources import register_resources
+from src.middleware import EmptyParameterCleanerMiddleware
 
 
 # Initialize MCP server
@@ -23,7 +24,7 @@ mcp = FastMCP("Reddit MCP", instructions="""
 Reddit MCP Server - Three-Layer Architecture
 
 🎯 ALWAYS FOLLOW THIS WORKFLOW:
-1. discover_operations() - See what's available
+1. discover_operations() - See what's available (no parameters)
 2. get_operation_schema() - Understand requirements  
 3. execute_operation() - Perform the action
 
@@ -44,6 +45,9 @@ Reddit MCP Server - Three-Layer Architecture
 Quick Start: Read reddit://server-info for complete documentation.
 """)
 
+# Add middleware to handle empty parameters from AI clients
+mcp.add_middleware(EmptyParameterCleanerMiddleware())
+
 # Initialize Reddit client (will be updated with config when available)
 reddit = None
 
@@ -59,7 +63,8 @@ def initialize_reddit_client():
 try:
     initialize_reddit_client()
 except Exception as e:
-    print(f"DEBUG: Reddit init failed: {e}", flush=True)
+    # Silently continue - initialization will be retried in main()
+    pass
 
 
 # Three-Layer Architecture Implementation
