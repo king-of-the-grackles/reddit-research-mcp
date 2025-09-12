@@ -6,7 +6,7 @@ from unittest.mock import Mock, MagicMock
 # Add project root to Python path so relative imports work
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from src.tools.search import search_all_reddit
+from src.tools.search import search_in_subreddit
 from src.tools.posts import fetch_subreddit_posts  
 from src.tools.comments import fetch_submission_with_comments
 
@@ -65,7 +65,8 @@ class TestSearchReddit:
         
         mock_reddit.subreddit.return_value.search.return_value = mock_submissions
         
-        result = search_all_reddit(
+        result = search_in_subreddit(
+            subreddit_name="all",
             query="test query",
             reddit=mock_reddit,
             limit=10
@@ -82,13 +83,14 @@ class TestSearchReddit:
         mock_reddit = Mock()
         mock_reddit.subreddit.side_effect = NotFound(Mock())
         
-        result = search_all_reddit(
+        result = search_in_subreddit(
+            subreddit_name="all",
             query="test",
             reddit=mock_reddit
         )
         
         assert "error" in result
-        assert "failed" in result["error"].lower()
+        assert "not found" in result["error"].lower()
 
 
 class TestFetchSubredditPosts:
