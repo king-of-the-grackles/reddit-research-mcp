@@ -25,15 +25,15 @@ from src.resources import register_resources
 
 # Initialize auth provider from environment if configured
 auth = None
-if os.getenv('FASTMCP_SERVER_AUTH_AUTHKITPROVIDER_AUTHKIT_DOMAIN'):
+if os.getenv('FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID'):
     try:
-        from fastmcp.server.auth.providers.workos import AuthKitProvider
-        auth = AuthKitProvider()  # Uses env vars automatically
-        print(f"✓ AuthKit authentication enabled", file=sys.stderr, flush=True)
+        from fastmcp.server.auth.providers.workos import WorkOSProvider
+        auth = WorkOSProvider()  # Uses env vars automatically
+        print(f"✓ WorkOS OAuth authentication enabled", file=sys.stderr, flush=True)
     except ImportError:
-        print(f"⚠️ AuthKit provider not available - update FastMCP to >=2.12.0", file=sys.stderr, flush=True)
+        print(f"⚠️ WorkOS provider not available - update FastMCP to >=2.12.0", file=sys.stderr, flush=True)
     except Exception as e:
-        print(f"⚠️ Failed to initialize AuthKit: {e}", file=sys.stderr, flush=True)
+        print(f"⚠️ Failed to initialize WorkOS: {e}", file=sys.stderr, flush=True)
 
 # Initialize MCP server
 mcp = FastMCP("Reddit MCP", auth=auth, instructions="""

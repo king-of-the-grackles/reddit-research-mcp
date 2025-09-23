@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-Test client for WorkOS-authenticated Reddit MCP server.
+Test client for WorkOS OAuth-authenticated Reddit MCP server.
 
 This client demonstrates how MCP clients automatically handle OAuth authentication
-when connecting to a protected server using WorkOS AuthKit with Dynamic Client Registration.
+when connecting to a protected server using WorkOS OAuth Connect.
 
 Usage:
     python test_auth_client.py
 
 The client will:
 1. Discover authentication requirements from the server
-2. Automatically register with WorkOS via DCR
-3. Open browser for user authentication (first time only)
+2. Open browser for WorkOS OAuth authentication (first time only)
+3. Handle OAuth callback and token exchange
 4. Cache tokens for future use
 5. Make authenticated tool calls
 """
@@ -53,7 +53,7 @@ async def test_authenticated_connection():
     """Test client that authenticates via WorkOS OAuth."""
 
     # Server URL - adjust if running on a different port or host
-    server_url = os.getenv('FASTMCP_SERVER_AUTH_AUTHKITPROVIDER_BASE_URL', 'http://localhost:8000')
+    server_url = os.getenv('FASTMCP_SERVER_AUTH_WORKOS_BASE_URL', 'http://localhost:8000')
     mcp_endpoint = f"{server_url}/mcp"
 
     print(f"\n🔌 Connecting to MCP server at: {mcp_endpoint}")
@@ -62,12 +62,12 @@ async def test_authenticated_connection():
     try:
         # The client will automatically:
         # 1. Discover auth requirements from /.well-known/oauth-protected-resource
-        # 2. Register with WorkOS via Dynamic Client Registration
-        # 3. Open browser for user authentication (if needed)
+        # 2. Open browser for WorkOS OAuth authentication (if needed)
+        # 3. Handle OAuth callback and token exchange
         # 4. Store tokens for future requests
 
         async with Client(mcp_endpoint, auth="oauth") as client:
-            print("\n✅ Successfully authenticated with WorkOS!")
+            print("\n✅ Successfully authenticated with WorkOS OAuth!")
             print("=" * 50)
 
             # Test 1: Discover available operations
@@ -147,27 +147,27 @@ async def test_authenticated_connection():
             print("\nAuthentication details:")
             print("  • OAuth flow handled automatically")
             print("  • Tokens cached for future use")
-            print("  • DCR eliminates manual client configuration")
+            print("  • WorkOS OAuth Connect for secure authentication")
 
     except Exception as e:
         print(f"\n❌ Error: {e}")
         print("\nTroubleshooting:")
         print("1. Ensure server is running: fastmcp run src/server.py --transport http --port 8000")
-        print("2. Check WorkOS AuthKit is configured in .env")
-        print("3. Verify Dynamic Client Registration is enabled in WorkOS dashboard")
+        print("2. Check WorkOS OAuth credentials are configured in .env")
+        print("3. Verify redirect URI is configured in WorkOS dashboard")
         print("4. Check server logs for more details")
 
 async def main():
     """Main entry point."""
-    print("🚀 Reddit MCP WorkOS Authentication Test Client")
+    print("🚀 Reddit MCP WorkOS OAuth Authentication Test Client")
     print("=" * 50)
 
     # Check if auth is configured
-    if os.getenv('FASTMCP_SERVER_AUTH_AUTHKITPROVIDER_AUTHKIT_DOMAIN'):
-        print("✓ WorkOS AuthKit configuration detected")
+    if os.getenv('FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID'):
+        print("✓ WorkOS OAuth configuration detected")
     else:
         print("⚠️  No WorkOS configuration found - server may run without auth")
-        print("   To enable auth, set FASTMCP_SERVER_AUTH_AUTHKITPROVIDER_AUTHKIT_DOMAIN in .env")
+        print("   To enable auth, set FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID and related vars in .env")
 
     await test_authenticated_connection()
 
