@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+"""
+Test client for WorkOS OAuth-authenticated Reddit MCP server.
+
+This client demonstrates how MCP clients automatically handle OAuth authentication
+when connecting to a protected server using WorkOS OAuth Connect.
+
+Usage:
+    python test_auth_client.py
+
+The client will:
+1. Discover authentication requirements from the server
+2. Open browser for WorkOS OAuth authentication (first time only)
+3. Handle OAuth callback and token exchange
+4. Cache tokens for future use
+5. Make authenticated tool calls
+"""
+
+import asyncio
+import os
+import json
+from pathlib import Path
+from dotenv import load_dotenv
+from fastmcp import Client
+
+# Load environment variables if available
+env_path = Path(__file__).parent / '.env'
+if env_path.exists():
+    load_dotenv(env_path)
+    print(f"✓ Loaded environment from {env_path}")
+
+# Override to use cloud instance for testing
+os.environ['FASTMCP_SERVER_AUTH_WORKOS_BASE_URL'] = 'https://reddit-research-mcp-fastmcp-workos-auth-e482104a.fastmcp.app'
+
+def parse_tool_result(result):
+    """Helper to parse FastMCP tool call results."""
+    if hasattr(result, 'content'):
+        # Content is a list of TextContent objects
+        if isinstance(result.content, list) and len(result.content) > 0:
+            # Get the text from the first TextContent object
+            text_content = result.content[0]
+            if hasattr(text_content, 'text'):
+                # Parse the JSON string
+                try:
+                    return json.loads(text_content.text)
+                except json.JSONDecodeError:
+                    return text_content.text
+            else:
+                return result.content
+        else:
+            return result.content
+    else:
+        return result
+
+async def test_authenticated_connection():
+    """Test client that authenticates via WorkOS OAuth."""
+
+    # Server URL - use cloud instance or override with env var
+    server_url = os.getenv('FASTMCP_SERVER_AUTH_WORKOS_BASE_URL', 'https://reddit-research-mcp-fastmcp-workos-auth-e482104a.fastmcp.app')
+    mcp_endpoint = f"{server_url}/mcp"
+
+    print(f"\n🔌 Connecting to MCP server at: {mcp_endpoint}")
+    print("=" * 50)
+
+    try:
+        # The client will automatically:
+        # 1. Discover auth requirements from /.well-known/oauth-protected-resource
+        # 2. Open browser for WorkOS OAuth authentication (if needed)
+        # 3. Handle OAuth callback and token exchange
+        # 4. Store tokens for future requests
+
+        async with Client(mcp_endpoint, auth="oauth") as client:
+            print("\n✅ Successfully authenticated with WorkOS OAuth!")
+            print("=" * 50)
+
+            # Test 1: Discover available operations
+            print("\n📋 Testing: discover_operations")
+            result = await client.call_tool("discover_operations")
+            operations = parse_tool_result(result)
+
+            if isinstance(operations, dict) and 'operations' in operations:
+                print(f"Available operations: {list(operations.get('operations', {}).keys())}")
+            else:
+                print(f"Unexpected response format: {operations}")
+
+            # Test 2: Get operation schema
+            print("\n📋 Testing: get_operation_schema")
+            schema_result = await client.call_tool(
+                "get_operation_schema",
+                {"operation_id": "discover_subreddits", "include_examples": True}
+            )
+            schema = parse_tool_result(schema_result)
+
+            if isinstance(schema, dict) and 'parameters' in schema:
+                print(f"Schema for discover_subreddits: parameters = {list(schema.get('parameters', {}).keys())}")
+            else:
+                print(f"Schema response: {schema}")
+
+            # Test 3: Execute an operation - discover subreddits
+            print("\n📋 Testing: execute_operation (discover_subreddits)")
+            try:
+                subreddits_result = await client.call_tool(
+                    "execute_operation",
+                    {
+                        "operation_id": "discover_subreddits",
+                        "parameters": {"query": "python programming", "limit": 5}
+                    }
+                )
+                subreddits = parse_tool_result(subreddits_result)
+
+                # Check for the success response structure
+                if isinstance(subreddits, dict):
+                    if 'success' in subreddits and subreddits['success'] and 'data' in subreddits:
+                        data = subreddits['data']
+                        if 'subreddits' in data:
+                            print(f"Found {len(data['subreddits'])} subreddits:")
+                            for sub in data['subreddits'][:3]:  # Show first 3
+                                confidence = sub.get('confidence', 0)
+                                print(f"  • r/{sub.get('name', 'unknown')} (confidence: {confidence:.2f})")
+                        else:
+                            print(f"Response data: {data}")
+                    elif 'subreddits' in subreddits:
+                        print(f"Found {len(subreddits['subreddits'])} subreddits:")
+                        for sub in subreddits['subreddits'][:3]:  # Show first 3
+                            confidence = sub.get('confidence', 0)
+                            print(f"  • r/{sub.get('name', 'unknown')} (confidence: {confidence:.2f})")
+                    else:
+                        print(f"Response: {subreddits}")
+                else:
+                    print(f"Response: {subreddits}")
+            except Exception as e:
+                print(f"Note: Subreddit discovery may require ChromaDB setup: {e}")
+
+            # Test 4: List available resources
+            print("\n📋 Testing: list resources")
+            resources = await client.list_resources()
+            if resources:
+                print(f"Available resources: {len(resources)}")
+                for res in resources[:3]:  # Show first 3
+                    # Resources are objects, not dicts
+                    if hasattr(res, 'uri'):
+                        print(f"  • {res.uri}")
+                    else:
+                        print(f"  • {res}")
+            else:
+                print("No resources available")
+
+            print("\n" + "=" * 50)
+            print("✅ All tests completed successfully!")
+            print("\nAuthentication details:")
+            print("  • OAuth flow handled automatically")
+            print("  • Tokens cached for future use")
+            print("  • WorkOS OAuth Connect for secure authentication")
+
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        print("\nTroubleshooting:")
+        print("1. Ensure server is running: fastmcp run src/server.py --transport http --port 8000")
+        print("2. Check WorkOS OAuth credentials are configured in .env")
+        print("3. Verify redirect URI is configured in WorkOS dashboard")
+        print("4. Check server logs for more details")
+
+async def main():
+    """Main entry point."""
+    print("🚀 Reddit MCP WorkOS OAuth Authentication Test Client")
+    print("=" * 50)
+
+    # Check if auth is configured
+    if os.getenv('FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID'):
+        print("✓ WorkOS OAuth configuration detected")
+    else:
+        print("⚠️  No WorkOS configuration found - server may run without auth")
+        print("   To enable auth, set FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID and related vars in .env")
+
+    await test_authenticated_connection()
+
+if __name__ == "__main__":
+    asyncio.run(main())

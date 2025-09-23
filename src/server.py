@@ -6,9 +6,15 @@ import os
 import json
 from pathlib import Path
 from datetime import datetime
+from dotenv import load_dotenv
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Load environment variables from .env file
+env_path = Path(__file__).parent.parent / '.env'
+if env_path.exists():
+    load_dotenv(env_path)
 
 from src.config import get_reddit_client
 from src.tools.search import search_in_subreddit
@@ -17,9 +23,20 @@ from src.tools.comments import fetch_submission_with_comments
 from src.tools.discover import discover_subreddits
 from src.resources import register_resources
 
+# Initialize auth provider from environment if configured
+auth = None
+if os.getenv('FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID'):
+    try:
+        from fastmcp.server.auth.providers.workos import WorkOSProvider
+        auth = WorkOSProvider()  # Uses env vars automatically
+        print(f"✓ WorkOS OAuth authentication enabled", file=sys.stderr, flush=True)
+    except ImportError:
+        print(f"⚠️ WorkOS provider not available - update FastMCP to >=2.12.0", file=sys.stderr, flush=True)
+    except Exception as e:
+        print(f"⚠️ Failed to initialize WorkOS: {e}", file=sys.stderr, flush=True)
 
 # Initialize MCP server
-mcp = FastMCP("Reddit MCP", instructions="""
+mcp = FastMCP("Reddit MCP", auth=auth, instructions="""
 Reddit MCP Server - Three-Layer Architecture
 
 🎯 ALWAYS FOLLOW THIS WORKFLOW:
@@ -59,7 +76,7 @@ def initialize_reddit_client():
 try:
     initialize_reddit_client()
 except Exception as e:
-    print(f"DEBUG: Reddit init failed: {e}", flush=True)
+    print(f"DEBUG: Reddit init failed: {e}", file=sys.stderr, flush=True)
 
 
 # Three-Layer Architecture Implementation
@@ -515,8 +532,8 @@ def main():
         print("  1. Environment variables: REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT", flush=True)
         print("  2. Config file: .mcp-config.json", flush=True)
     
-    # Run with stdio transport
-    mcp.run()
+    # Run with HTTP transport for OAuth support
+    mcp.run(transport="http", port=8000)
 
 
 if __name__ == "__main__":
