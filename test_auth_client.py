@@ -29,6 +29,9 @@ if env_path.exists():
     load_dotenv(env_path)
     print(f"✓ Loaded environment from {env_path}")
 
+# Override to use cloud instance for testing
+os.environ['FASTMCP_SERVER_AUTH_WORKOS_BASE_URL'] = 'https://reddit-research-mcp-fastmcp-workos-auth-e482104a.fastmcp.app'
+
 def parse_tool_result(result):
     """Helper to parse FastMCP tool call results."""
     if hasattr(result, 'content'):
@@ -52,8 +55,8 @@ def parse_tool_result(result):
 async def test_authenticated_connection():
     """Test client that authenticates via WorkOS OAuth."""
 
-    # Server URL - adjust if running on a different port or host
-    server_url = os.getenv('FASTMCP_SERVER_AUTH_WORKOS_BASE_URL', 'http://localhost:8000')
+    # Server URL - use cloud instance or override with env var
+    server_url = os.getenv('FASTMCP_SERVER_AUTH_WORKOS_BASE_URL', 'https://reddit-research-mcp-fastmcp-workos-auth-e482104a.fastmcp.app')
     mcp_endpoint = f"{server_url}/mcp"
 
     print(f"\n🔌 Connecting to MCP server at: {mcp_endpoint}")
