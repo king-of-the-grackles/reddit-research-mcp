@@ -61,11 +61,6 @@ Reddit MCP Server - Three-Layer Architecture
 Quick Start: Read reddit://server-info for complete documentation.
 """)
 
-# Export ASGI app for uvicorn (enables running with: uvicorn server:app)
-# This ensures OAuth routes are properly registered
-# IMPORTANT: This must be called for OAuth routes to work with HTTP transport
-app = mcp.get_app()
-
 # Initialize Reddit client (will be updated with config when available)
 reddit = None
 
