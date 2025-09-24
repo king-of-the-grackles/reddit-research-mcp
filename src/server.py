@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, Response
+from starlette.responses import HTMLResponse, Response, RedirectResponse
 
 def normalize_callback_path(raw_path: Optional[str]) -> str:
     """Normalize OAuth callback path and enforce leading slash."""
@@ -71,6 +71,7 @@ def configure_workos_auth(callback_path: str, port: int) -> Tuple[Optional[Any],
         "mode": "disabled",
     }
     info['callback_url'] = f"{info['base_url'].rstrip('/')}{callback_path}"
+    info['resource_url'] = f"{info['base_url'].rstrip('/')}/mcp"
     raw_mode = (os.getenv("FASTMCP_SERVER_AUTH_WORKOS_MODE") or "auto").strip().lower()
     allowed_modes = {"auto", "authkit", "dcr", "oauth", "connect", "proxy"}
     if raw_mode not in allowed_modes:
@@ -348,6 +349,24 @@ async def oauth_callback(request: Request) -> Response:
         </html>
         """
     )
+
+if auth:
+
+    @mcp.custom_route("/.well-known/oauth-protected-resource/mcp", methods=["GET"])
+    async def oauth_protected_resource_alias(_: Request) -> Response:
+        """Alias metadata endpoint for clients that append /mcp."""
+        return RedirectResponse(
+            url="/.well-known/oauth-protected-resource",
+            status_code=308,
+        )
+
+    @mcp.custom_route("/.well-known/oauth-authorization-server/mcp", methods=["GET"])
+    async def oauth_authorization_server_alias(_: Request) -> Response:
+        """Alias authorization metadata endpoint for /mcp suffix probes."""
+        return RedirectResponse(
+            url="/.well-known/oauth-authorization-server",
+            status_code=308,
+        )
 
 # Initialize Reddit client (will be updated with config when available)
 reddit = None
