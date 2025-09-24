@@ -17,9 +17,32 @@ from src.tools.comments import fetch_submission_with_comments
 from src.tools.discover import discover_subreddits
 from src.resources import register_resources
 
+# Initialize authentication if WorkOS credentials are present
+auth = None
+try:
+    from fastmcp.server.auth.providers.workos import WorkOSProvider
 
-# Initialize MCP server
-mcp = FastMCP("Reddit MCP", instructions="""
+    # Check if WorkOS credentials are set
+    if all([
+        os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID") or os.getenv("WORKOS_CLIENT_ID"),
+        os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_SECRET") or os.getenv("WORKOS_CLIENT_SECRET"),
+        os.getenv("FASTMCP_SERVER_AUTH_WORKOS_AUTHKIT_DOMAIN") or os.getenv("WORKOS_AUTHKIT_DOMAIN")
+    ]):
+        auth = WorkOSProvider(
+            client_id=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID") or os.getenv("WORKOS_CLIENT_ID"),
+            client_secret=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_SECRET") or os.getenv("WORKOS_CLIENT_SECRET"),
+            authkit_domain=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_AUTHKIT_DOMAIN") or os.getenv("WORKOS_AUTHKIT_DOMAIN"),
+            base_url=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_BASE_URL", "http://localhost:8000"),
+            required_scopes=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_REQUIRED_SCOPES", "").split(",") if os.getenv("FASTMCP_SERVER_AUTH_WORKOS_REQUIRED_SCOPES") else ["openid", "profile", "email"]
+        )
+        print(f"WorkOS authentication configured", flush=True)
+except ImportError:
+    print("WorkOS provider not available, running without authentication", flush=True)
+except Exception as e:
+    print(f"Failed to configure WorkOS authentication: {e}", flush=True)
+
+# Initialize MCP server with optional authentication
+mcp = FastMCP("Reddit MCP", auth=auth, instructions="""
 Reddit MCP Server - Three-Layer Architecture
 
 🎯 ALWAYS FOLLOW THIS WORKFLOW:
@@ -503,7 +526,7 @@ def reddit_research(research_request: str) -> List[Message]:
 def main():
     """Main entry point for the server."""
     print("Reddit MCP Server starting...", flush=True)
-    
+
     # Try to initialize the Reddit client with available configuration
     try:
         initialize_reddit_client()
@@ -514,9 +537,21 @@ def main():
         print("\nPlease provide Reddit API credentials via:", flush=True)
         print("  1. Environment variables: REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT", flush=True)
         print("  2. Config file: .mcp-config.json", flush=True)
-    
-    # Run with stdio transport
-    mcp.run()
+
+    # Determine transport based on authentication and environment
+    transport = os.getenv("FASTMCP_TRANSPORT", "stdio")
+    port = int(os.getenv("FASTMCP_PORT", "8001"))
+
+    # If auth is configured, use HTTP transport
+    if auth:
+        transport = "http"
+        print(f"Starting server with HTTP transport on port {port}", flush=True)
+        print(f"Server will be available at http://localhost:{port}/mcp", flush=True)
+        print("Authentication enabled via WorkOS", flush=True)
+        mcp.run(transport=transport, port=port)
+    else:
+        # Run with stdio transport by default
+        mcp.run(transport=transport)
 
 
 if __name__ == "__main__":

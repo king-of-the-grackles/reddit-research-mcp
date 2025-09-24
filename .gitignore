@@ -144,3 +144,14 @@ fastmcp.db
 # MCP Registry files
 .mcpregistry_*
 mcp-publisher
+
+# Local Testing Scripts
+test_auth.py
+verify_auth.py
+
+# Production Configuration Docs
+# These contain environment-specific values and deployment details
+FASTMCP_CLOUD_ENV.md
+WORKOS_PRODUCTION.md
+DEPLOY_CHECKLIST.md
+WORKOS_AUTH.md
