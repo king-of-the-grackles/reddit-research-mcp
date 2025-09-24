@@ -860,7 +860,11 @@ def main():
             print(f"OAuth callback path: {AUTH_CONFIGURATION.get('callback_path', AUTH_CALLBACK_PATH)}", flush=True)
             if AUTH_CONFIGURATION.get('callback_url'):
                 print(f"OAuth callback URL: {AUTH_CONFIGURATION['callback_url']}", flush=True)
-        mcp.run(transport="http", port=port)
+        mcp.run(
+            transport="http",
+            port=port,
+            uvicorn_config={"timeout_keep_alive": 60},
+        )
     else:
         mcp.run(transport=transport)
 
