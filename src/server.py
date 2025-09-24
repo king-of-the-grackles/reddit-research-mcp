@@ -1,6 +1,6 @@
 from fastmcp import FastMCP
 from fastmcp.prompts import Message
-from typing import Optional, Literal, List, Union, Dict, Any, Annotated
+from typing import Optional, Literal, List, Union, Dict, Any, Tuple, Annotated
 import sys
 import os
 import json
@@ -8,6 +8,175 @@ from pathlib import Path
 from datetime import datetime
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
+
+def normalize_callback_path(raw_path: Optional[str]) -> str:
+    """Normalize OAuth callback path and enforce leading slash."""
+    if not raw_path:
+        raw_path = "/auth/callback"
+    raw_path = raw_path.strip()
+    if not raw_path:
+        raw_path = "/auth/callback"
+    if not raw_path.startswith("/"):
+        raw_path = f"/{raw_path}"
+    if len(raw_path) > 1 and raw_path.endswith("/"):
+        raw_path = raw_path[:-1]
+    return raw_path or "/auth/callback"
+
+
+def parse_required_scopes(raw_scopes: Optional[str]) -> Optional[List[str]]:
+    """Parse scope configuration supporting JSON, comma, or space separated values."""
+    if not raw_scopes:
+        return None
+    raw_scopes = raw_scopes.strip()
+    if not raw_scopes:
+        return None
+    try:
+        parsed = json.loads(raw_scopes)
+    except json.JSONDecodeError:
+        parsed = None
+    if isinstance(parsed, list):
+        scopes = [str(item).strip() for item in parsed if str(item).strip()]
+        return scopes or None
+    tokens = [token.strip() for token in raw_scopes.replace(",", " ").split() if token.strip()]
+    return tokens or None
+
+
+def resolve_base_url(port: int) -> str:
+    """Resolve callback base URL with fallbacks for local development."""
+    candidates = [
+        os.getenv("FASTMCP_SERVER_AUTH_WORKOS_BASE_URL"),
+        os.getenv("FASTMCP_PUBLIC_BASE_URL"),
+        os.getenv("PUBLIC_BASE_URL"),
+        os.getenv("FASTMCP_SERVER_BASE_URL"),
+    ]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        candidate = candidate.strip()
+        if not candidate:
+            continue
+        candidate = candidate.rstrip("/")
+        if not candidate.startswith(("http://", "https://")):
+            scheme = "https" if "localhost" not in candidate and ":" not in candidate else "http"
+            candidate = f"{scheme}://{candidate}"
+        return candidate
+    return f"http://localhost:{port}"
+
+
+def configure_workos_auth(callback_path: str, port: int) -> Tuple[Optional[Any], Dict[str, Any]]:
+    """Configure WorkOS authentication provider if environment variables are present."""
+    info: Dict[str, Any] = {
+        "base_url": resolve_base_url(port),
+        "callback_path": callback_path,
+        "mode": "disabled",
+    }
+    info['callback_url'] = f"{info['base_url'].rstrip('/')}{callback_path}"
+    raw_mode = (os.getenv("FASTMCP_SERVER_AUTH_WORKOS_MODE") or "auto").strip().lower()
+    allowed_modes = {"auto", "authkit", "dcr", "oauth", "connect", "proxy"}
+    if raw_mode not in allowed_modes:
+        raw_mode = "auto"
+    prefer_authkit = raw_mode in {"auto", "authkit", "dcr"}
+    allow_oauth = raw_mode in {"auto", "oauth", "connect", "proxy"}
+
+    try:
+        from fastmcp.server.auth.providers.workos import AuthKitProvider, WorkOSProvider
+    except ImportError:
+        print("⚠️  WorkOS auth provider not available, running without authentication", flush=True)
+        return None, info
+    except Exception as import_error:
+        print(f"❌ Failed to import WorkOS auth provider: {import_error}", flush=True)
+        return None, info
+
+    authkit_domain = (
+        os.getenv("FASTMCP_SERVER_AUTH_WORKOS_AUTHKIT_DOMAIN") or
+        os.getenv("WORKOS_AUTHKIT_DOMAIN")
+    )
+    if authkit_domain:
+        authkit_domain = authkit_domain.strip().rstrip("/")
+    client_id = (
+        os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID") or
+        os.getenv("WORKOS_CLIENT_ID")
+    )
+    client_secret = (
+        os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_SECRET") or
+        os.getenv("WORKOS_CLIENT_SECRET")
+    )
+    required_scopes = parse_required_scopes(
+        os.getenv("FASTMCP_SERVER_AUTH_WORKOS_REQUIRED_SCOPES") or
+        os.getenv("WORKOS_REQUIRED_SCOPES")
+    )
+
+    def _log_common(status: str) -> None:
+        print(status, flush=True)
+        if authkit_domain:
+            print(f"   AuthKit Domain: {authkit_domain}", flush=True)
+        print(f"   Base URL: {info['base_url']}", flush=True)
+        print(f"   Callback Path: {callback_path}", flush=True)
+        print(f"   Callback URL: {info['callback_url']}", flush=True)
+        if required_scopes:
+            scope_display = ", ".join(required_scopes)
+            print(f"   Scopes: {scope_display}", flush=True)
+
+    if prefer_authkit and authkit_domain:
+        try:
+            provider = AuthKitProvider(
+                authkit_domain=authkit_domain,
+                base_url=info["base_url"],
+                required_scopes=required_scopes,
+            )
+            info.update({"mode": "authkit", "authkit_domain": authkit_domain, "authorization_server": authkit_domain})
+            if required_scopes:
+                info["scopes"] = required_scopes
+            _log_common("✅ WorkOS AuthKit configured with DCR")
+            return provider, info
+        except Exception as authkit_error:
+            print(f"❌ Failed to configure WorkOS AuthKit: {authkit_error}", flush=True)
+            if raw_mode in {"authkit", "dcr"}:
+                return None, info
+            # Fall through to OAuth proxy if allowed
+
+    if allow_oauth and authkit_domain and client_id and client_secret:
+        try:
+            provider = WorkOSProvider(
+                client_id=client_id,
+                client_secret=client_secret,
+                authkit_domain=authkit_domain,
+                base_url=info["base_url"],
+                redirect_path=callback_path,
+                required_scopes=required_scopes,
+            )
+            info.update(
+                {
+                    "mode": "oauth",
+                    "authkit_domain": authkit_domain,
+                    "authorization_server": authkit_domain,
+                    "client_id": client_id,
+                }
+            )
+            if required_scopes:
+                info["scopes"] = required_scopes
+            masked_client = client_id[-6:] if len(client_id) > 6 else client_id
+            _log_common("✅ WorkOS OAuth proxy configured (Connect)")
+            print(f"   Client ID suffix: ...{masked_client}", flush=True)
+            return provider, info
+        except Exception as oauth_error:
+            print(f"❌ Failed to configure WorkOS OAuth provider: {oauth_error}", flush=True)
+
+    if client_id or client_secret:
+        print(
+            "⚠️  WorkOS client credentials detected but configuration incomplete. "
+            "Set WORKOS_AUTHKIT_DOMAIN to enable authentication.",
+            flush=True,
+        )
+
+    if authkit_domain and not prefer_authkit:
+        print(
+            "⚠️  AuthKit domain provided but authentication mode prevents configuration. "
+            "Set FASTMCP_SERVER_AUTH_WORKOS_MODE=auto or authkit to enable DCR.",
+            flush=True,
+        )
+
+    return None, info
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -20,33 +189,14 @@ from src.tools.discover import discover_subreddits
 from src.resources import register_resources
 
 # Initialize authentication if WorkOS AuthKit is configured
-auth = None
-try:
-    from fastmcp.server.auth.providers.workos import AuthKitProvider
-
-    # Check if AuthKit domain is configured - support multiple env var names for compatibility
-    authkit_domain = (
-        os.getenv("FASTMCP_SERVER_AUTH_WORKOS_AUTHKIT_DOMAIN") or
-        os.getenv("WORKOS_AUTHKIT_DOMAIN")
-    )
-
-    if authkit_domain:
-        base_url = os.getenv("FASTMCP_SERVER_AUTH_WORKOS_BASE_URL", "http://localhost:8000")
-
-        # Initialize AuthKit with DCR support - no client credentials needed!
-        auth = AuthKitProvider(
-            authkit_domain=authkit_domain,
-            base_url=base_url
-            # DCR handles client registration automatically
-            # No client_id/client_secret required
-        )
-        print(f"✅ WorkOS AuthKit configured with DCR", flush=True)
-        print(f"   AuthKit Domain: {authkit_domain}", flush=True)
-        print(f"   Base URL: {base_url}", flush=True)
-except ImportError:
-    print("⚠️  WorkOS AuthKit provider not available, running without authentication", flush=True)
-except Exception as e:
-    print(f"❌ Failed to configure WorkOS AuthKit: {e}", flush=True)
+DEFAULT_HTTP_PORT = int(os.getenv("FASTMCP_PORT", "8000"))
+AUTH_CALLBACK_PATH = normalize_callback_path(
+    os.getenv("FASTMCP_SERVER_AUTH_WORKOS_REDIRECT_PATH")
+    or os.getenv("WORKOS_REDIRECT_PATH")
+    or "/auth/callback"
+)
+auth, AUTH_CONFIGURATION = configure_workos_auth(AUTH_CALLBACK_PATH, DEFAULT_HTTP_PORT)
+AUTH_CALLBACK_PATH = AUTH_CONFIGURATION.get("callback_path", AUTH_CALLBACK_PATH)
 
 # Initialize MCP server with optional authentication
 mcp = FastMCP("Reddit MCP", auth=auth, instructions="""
@@ -75,7 +225,7 @@ Quick Start: Read reddit://server-info for complete documentation.
 """)
 
 # Add OAuth callback handler for MCP clients
-@mcp.custom_route("/auth/callback", methods=["GET"])
+@mcp.custom_route(AUTH_CALLBACK_PATH, methods=["GET"])
 async def oauth_callback(request: Request) -> Response:
     """
     Handle OAuth callback from AuthKit.
@@ -670,19 +820,29 @@ def main():
         print("  1. Environment variables: REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT", flush=True)
         print("  2. Config file: .mcp-config.json", flush=True)
 
-    # Determine transport based on authentication and environment
-    transport = os.getenv("FASTMCP_TRANSPORT", "stdio")
-    port = int(os.getenv("FASTMCP_PORT", "8001"))
+    transport_env = os.getenv("FASTMCP_TRANSPORT")
+    port_env = os.getenv("FASTMCP_PORT")
 
-    # If auth is configured, use HTTP transport
     if auth:
         transport = "http"
-        print(f"Starting server with HTTP transport on port {port}", flush=True)
-        print(f"Server will be available at http://localhost:{port}/mcp", flush=True)
-        print("Authentication enabled via WorkOS", flush=True)
-        mcp.run(transport=transport, port=port)
+        port = int(port_env or DEFAULT_HTTP_PORT)
     else:
-        # Run with stdio transport by default
+        transport = transport_env or "stdio"
+        default_port = "8000" if transport == "http" else "8001"
+        port = int(port_env or default_port)
+
+    if transport == "http":
+        display_url = AUTH_CONFIGURATION.get("base_url", f"http://localhost:{port}")
+        display_url = display_url.rstrip("/")
+        print(f"Starting server with HTTP transport on port {port}", flush=True)
+        print(f"Server will be available at {display_url}/mcp", flush=True)
+        if auth:
+            print("Authentication enabled via WorkOS", flush=True)
+            print(f"OAuth callback path: {AUTH_CONFIGURATION.get('callback_path', AUTH_CALLBACK_PATH)}", flush=True)
+            if AUTH_CONFIGURATION.get('callback_url'):
+                print(f"OAuth callback URL: {AUTH_CONFIGURATION['callback_url']}", flush=True)
+        mcp.run(transport="http", port=port)
+    else:
         mcp.run(transport=transport)
 
 
