@@ -17,29 +17,25 @@ from src.tools.comments import fetch_submission_with_comments
 from src.tools.discover import discover_subreddits
 from src.resources import register_resources
 
-# Initialize authentication if WorkOS credentials are present
+# Initialize authentication if WorkOS AuthKit is configured
 auth = None
 try:
-    from fastmcp.server.auth.providers.workos import WorkOSProvider
+    from fastmcp.server.auth.providers.workos import AuthKitProvider
 
-    # Check if WorkOS credentials are set
-    if all([
-        os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID") or os.getenv("WORKOS_CLIENT_ID"),
-        os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_SECRET") or os.getenv("WORKOS_CLIENT_SECRET"),
-        os.getenv("FASTMCP_SERVER_AUTH_WORKOS_AUTHKIT_DOMAIN") or os.getenv("WORKOS_AUTHKIT_DOMAIN")
-    ]):
-        auth = WorkOSProvider(
-            client_id=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_ID") or os.getenv("WORKOS_CLIENT_ID"),
-            client_secret=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_SECRET") or os.getenv("WORKOS_CLIENT_SECRET"),
-            authkit_domain=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_AUTHKIT_DOMAIN") or os.getenv("WORKOS_AUTHKIT_DOMAIN"),
-            base_url=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_BASE_URL", "http://localhost:8000"),
-            required_scopes=[]  # Empty list to avoid scope validation issues with Claude Desktop
+    # Check if AuthKit domain is configured
+    authkit_domain = os.getenv("FASTMCP_SERVER_AUTH_WORKOS_AUTHKIT_DOMAIN") or os.getenv("WORKOS_AUTHKIT_DOMAIN")
+    if authkit_domain:
+        auth = AuthKitProvider(
+            authkit_domain=authkit_domain,
+            base_url=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_BASE_URL", "http://localhost:8000")
+            # No client_id/client_secret needed - DCR handles authentication automatically!
+            # No required_scopes parameter - AuthKit handles diverse client scopes gracefully
         )
-        print(f"WorkOS authentication configured", flush=True)
+        print(f"WorkOS AuthKit with DCR configured", flush=True)
 except ImportError:
-    print("WorkOS provider not available, running without authentication", flush=True)
+    print("WorkOS AuthKit provider not available, running without authentication", flush=True)
 except Exception as e:
-    print(f"Failed to configure WorkOS authentication: {e}", flush=True)
+    print(f"Failed to configure WorkOS AuthKit: {e}", flush=True)
 
 # Initialize MCP server with optional authentication
 mcp = FastMCP("Reddit MCP", auth=auth, instructions="""
