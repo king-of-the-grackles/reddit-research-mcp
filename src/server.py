@@ -6,6 +6,8 @@ import os
 import json
 from pathlib import Path
 from datetime import datetime
+from starlette.requests import Request
+from starlette.responses import HTMLResponse, Response
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -52,7 +54,7 @@ Reddit MCP Server - Three-Layer Architecture
 
 🎯 ALWAYS FOLLOW THIS WORKFLOW:
 1. discover_operations() - See what's available
-2. get_operation_schema() - Understand requirements  
+2. get_operation_schema() - Understand requirements
 3. execute_operation() - Perform the action
 
 📊 RESEARCH BEST PRACTICES:
@@ -71,6 +73,131 @@ Reddit MCP Server - Three-Layer Architecture
 
 Quick Start: Read reddit://server-info for complete documentation.
 """)
+
+# Add OAuth callback handler for MCP clients
+@mcp.custom_route("/auth/callback", methods=["GET"])
+async def oauth_callback(request: Request) -> Response:
+    """
+    Handle OAuth callback from AuthKit.
+    MCP clients expect this endpoint to exist for the OAuth flow completion.
+    The actual token exchange happens client-side.
+    """
+    code = request.query_params.get("code")
+    state = request.query_params.get("state")
+    error = request.query_params.get("error")
+
+    if error:
+        return HTMLResponse(
+            content=f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Authentication Failed</title>
+                <style>
+                    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                           display: flex; justify-content: center; align-items: center;
+                           height: 100vh; margin: 0; background: #f5f5f5; }}
+                    .container {{ text-align: center; padding: 2rem; background: white;
+                                 border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+                    h1 {{ color: #d32f2f; margin-bottom: 1rem; }}
+                    p {{ color: #666; margin-bottom: 1rem; }}
+                    .error {{ background: #ffebee; padding: 1rem; border-radius: 4px;
+                             color: #c62828; margin-top: 1rem; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>Authentication Failed</h1>
+                    <p>There was an error during authentication.</p>
+                    <div class="error">Error: {error}</div>
+                    <p style="margin-top: 2rem; font-size: 0.9rem; color: #999;">
+                        You can close this window and try again.
+                    </p>
+                </div>
+            </body>
+            </html>
+            """,
+            status_code=400
+        )
+
+    if not code:
+        return HTMLResponse(
+            content="""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Invalid Request</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                           display: flex; justify-content: center; align-items: center;
+                           height: 100vh; margin: 0; background: #f5f5f5; }
+                    .container { text-align: center; padding: 2rem; background: white;
+                                 border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                    h1 { color: #d32f2f; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>Invalid Request</h1>
+                    <p>No authorization code received.</p>
+                </div>
+            </body>
+            </html>
+            """,
+            status_code=400
+        )
+
+    # Success - return HTML that the MCP client can handle
+    return HTMLResponse(
+        content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Authentication Successful</title>
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                       display: flex; justify-content: center; align-items: center;
+                       height: 100vh; margin: 0; background: #f5f5f5; }}
+                .container {{ text-align: center; padding: 2rem; background: white;
+                             border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+                h1 {{ color: #2e7d32; margin-bottom: 1rem; }}
+                p {{ color: #666; margin-bottom: 1.5rem; }}
+                .success {{ background: #e8f5e9; padding: 1rem; border-radius: 4px;
+                           color: #1b5e20; }}
+                .code {{ font-family: 'Courier New', monospace; background: #f5f5f5;
+                        padding: 0.25rem 0.5rem; border-radius: 3px; }}
+            </style>
+            <script>
+                // Attempt to pass the code back to the MCP client if it's listening
+                if (window.opener) {{
+                    window.opener.postMessage({{
+                        type: 'oauth_callback',
+                        code: '{code}',
+                        state: '{state or ""}'
+                    }}, '*');
+                }}
+
+                // Auto-close after a short delay
+                setTimeout(() => {{
+                    window.close();
+                }}, 3000);
+            </script>
+        </head>
+        <body>
+            <div class="container">
+                <h1>✓ Authentication Successful</h1>
+                <p>You have successfully authenticated with the Reddit MCP Server.</p>
+                <div class="success">
+                    Authorization code received successfully
+                </div>
+                <p style="margin-top: 2rem; font-size: 0.9rem; color: #999;">
+                    This window will close automatically, or you can close it manually.
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+    )
 
 # Initialize Reddit client (will be updated with config when available)
 reddit = None
