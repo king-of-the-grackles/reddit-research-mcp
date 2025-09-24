@@ -4,10 +4,37 @@ from typing import Optional, Literal, List, Union, Dict, Any, Tuple, Annotated
 import sys
 import os
 import json
+import logging
 from pathlib import Path
 from datetime import datetime
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response, RedirectResponse
+from fastmcp.server.middleware.logging import LoggingMiddleware
+from fastmcp.utilities.logging import configure_logging, get_logger
+
+
+def _resolve_log_level(raw_level: str) -> int:
+    """Convert string/int log level env value to logging level."""
+    candidate = raw_level.strip()
+    if not candidate:
+        return logging.INFO
+    if candidate.isdigit():
+        return int(candidate)
+    return getattr(logging, candidate.upper(), logging.INFO)
+
+
+LOG_LEVEL = _resolve_log_level(os.getenv("FASTMCP_LOG_LEVEL", "INFO"))
+configure_logging(level=LOG_LEVEL)
+logger = get_logger("server")
+auth_logger = get_logger("server.auth.workos")
+callback_logger = get_logger("server.auth.workos.callback")
+workos_provider_logger = logging.getLogger("FastMCP.fastmcp.server.auth.providers.workos")
+
+if os.getenv("FASTMCP_WORKOS_DEBUG", "false").strip().lower() in {"1", "true", "yes", "on"}:
+    workos_provider_logger.setLevel(logging.DEBUG)
+    auth_logger.debug("WorkOS provider debug logging enabled")
+else:
+    workos_provider_logger.setLevel(LOG_LEVEL)
 
 def normalize_callback_path(raw_path: Optional[str]) -> str:
     """Normalize OAuth callback path and enforce leading slash."""
@@ -82,10 +109,10 @@ def configure_workos_auth(callback_path: str, port: int) -> Tuple[Optional[Any],
     try:
         from fastmcp.server.auth.providers.workos import AuthKitProvider, WorkOSProvider
     except ImportError:
-        print("⚠️  WorkOS auth provider not available, running without authentication", flush=True)
+        auth_logger.warning("WorkOS auth provider not available; running without authentication")
         return None, info
     except Exception as import_error:
-        print(f"❌ Failed to import WorkOS auth provider: {import_error}", flush=True)
+        auth_logger.error("Failed to import WorkOS auth provider", exc_info=import_error)
         return None, info
 
     authkit_domain = (
@@ -108,15 +135,16 @@ def configure_workos_auth(callback_path: str, port: int) -> Tuple[Optional[Any],
     )
 
     def _log_common(status: str) -> None:
-        print(status, flush=True)
-        if authkit_domain:
-            print(f"   AuthKit Domain: {authkit_domain}", flush=True)
-        print(f"   Base URL: {info['base_url']}", flush=True)
-        print(f"   Callback Path: {callback_path}", flush=True)
-        print(f"   Callback URL: {info['callback_url']}", flush=True)
-        if required_scopes:
-            scope_display = ", ".join(required_scopes)
-            print(f"   Scopes: {scope_display}", flush=True)
+        scope_display = ", ".join(required_scopes) if required_scopes else "none"
+        auth_logger.info(
+            "%s | authkit_domain=%s base_url=%s callback_path=%s callback_url=%s scopes=%s",
+            status,
+            authkit_domain or "unset",
+            info["base_url"],
+            callback_path,
+            info["callback_url"],
+            scope_display,
+        )
 
     if prefer_authkit and authkit_domain:
         try:
@@ -128,10 +156,10 @@ def configure_workos_auth(callback_path: str, port: int) -> Tuple[Optional[Any],
             info.update({"mode": "authkit", "authkit_domain": authkit_domain, "authorization_server": authkit_domain})
             if required_scopes:
                 info["scopes"] = required_scopes
-            _log_common("✅ WorkOS AuthKit configured with DCR")
+            _log_common("WorkOS AuthKit configured with DCR")
             return provider, info
         except Exception as authkit_error:
-            print(f"❌ Failed to configure WorkOS AuthKit: {authkit_error}", flush=True)
+            auth_logger.error("Failed to configure WorkOS AuthKit", exc_info=authkit_error)
             if raw_mode in {"authkit", "dcr"}:
                 return None, info
             # Fall through to OAuth proxy if allowed
@@ -157,24 +185,20 @@ def configure_workos_auth(callback_path: str, port: int) -> Tuple[Optional[Any],
             if required_scopes:
                 info["scopes"] = required_scopes
             masked_client = client_id[-6:] if len(client_id) > 6 else client_id
-            _log_common("✅ WorkOS OAuth proxy configured (Connect)")
-            print(f"   Client ID suffix: ...{masked_client}", flush=True)
+            _log_common("WorkOS OAuth proxy configured (Connect)")
+            auth_logger.info("WorkOS client configured | client_id_suffix=...%s", masked_client)
             return provider, info
         except Exception as oauth_error:
-            print(f"❌ Failed to configure WorkOS OAuth provider: {oauth_error}", flush=True)
+            auth_logger.error("Failed to configure WorkOS OAuth provider", exc_info=oauth_error)
 
     if client_id or client_secret:
-        print(
-            "⚠️  WorkOS client credentials detected but configuration incomplete. "
-            "Set WORKOS_AUTHKIT_DOMAIN to enable authentication.",
-            flush=True,
+        auth_logger.warning(
+            "WorkOS client credentials detected but configuration incomplete; set WORKOS_AUTHKIT_DOMAIN to enable authentication"
         )
 
     if authkit_domain and not prefer_authkit:
-        print(
-            "⚠️  AuthKit domain provided but authentication mode prevents configuration. "
-            "Set FASTMCP_SERVER_AUTH_WORKOS_MODE=auto or authkit to enable DCR.",
-            flush=True,
+        auth_logger.warning(
+            "AuthKit domain provided but authentication mode prevents configuration; set FASTMCP_SERVER_AUTH_WORKOS_MODE=auto or authkit to enable DCR"
         )
 
     return None, info
@@ -225,6 +249,15 @@ Reddit MCP Server - Three-Layer Architecture
 Quick Start: Read reddit://server-info for complete documentation.
 """)
 
+# Log incoming MCP messages for debugging client interactions
+mcp.add_middleware(
+    LoggingMiddleware(
+        logger=get_logger("server.requests"),
+        include_payloads=True,
+        max_payload_length=1000,
+    )
+)
+
 # Add OAuth callback handler for MCP clients
 @mcp.custom_route(AUTH_CALLBACK_PATH, methods=["GET"])
 async def oauth_callback(request: Request) -> Response:
@@ -237,7 +270,19 @@ async def oauth_callback(request: Request) -> Response:
     state = request.query_params.get("state")
     error = request.query_params.get("error")
 
+    callback_logger.info(
+        "OAuth callback received | state=%s code_present=%s error=%s",
+        state or "unset",
+        bool(code),
+        error or "none",
+    )
+
     if error:
+        callback_logger.warning(
+            "OAuth callback returned error | state=%s error=%s",
+            state or "unset",
+            error,
+        )
         return HTMLResponse(
             content=f"""
             <!DOCTYPE html>
@@ -272,6 +317,10 @@ async def oauth_callback(request: Request) -> Response:
         )
 
     if not code:
+        callback_logger.warning(
+            "OAuth callback missing authorization code | state=%s",
+            state or "unset",
+        )
         return HTMLResponse(
             content="""
             <!DOCTYPE html>
@@ -299,6 +348,11 @@ async def oauth_callback(request: Request) -> Response:
         )
 
     # Success - return HTML that the MCP client can handle
+    callback_logger.info(
+        "OAuth callback completed successfully | state=%s",
+        state or "unset",
+    )
+
     return HTMLResponse(
         content=f"""
         <!DOCTYPE html>
