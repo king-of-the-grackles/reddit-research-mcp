@@ -33,7 +33,7 @@ try:
             client_secret=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_CLIENT_SECRET") or os.getenv("WORKOS_CLIENT_SECRET"),
             authkit_domain=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_AUTHKIT_DOMAIN") or os.getenv("WORKOS_AUTHKIT_DOMAIN"),
             base_url=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_BASE_URL", "http://localhost:8000"),
-            required_scopes=os.getenv("FASTMCP_SERVER_AUTH_WORKOS_REQUIRED_SCOPES", "").split(",") if os.getenv("FASTMCP_SERVER_AUTH_WORKOS_REQUIRED_SCOPES") else ["openid", "profile", "email"]
+            required_scopes=[]  # Empty list to avoid scope validation issues with Claude Desktop
         )
         print(f"WorkOS authentication configured", flush=True)
 except ImportError:
