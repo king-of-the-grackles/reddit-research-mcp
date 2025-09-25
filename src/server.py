@@ -9,9 +9,11 @@ import time
 from pathlib import Path
 from datetime import datetime
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, Response, RedirectResponse
+from starlette.responses import HTMLResponse, Response, RedirectResponse, JSONResponse
 from fastmcp.server.middleware.logging import LoggingMiddleware
 from fastmcp.utilities.logging import configure_logging, get_logger
+import jwt
+import base64
 
 
 def _resolve_log_level(raw_level: str) -> int:
@@ -29,6 +31,7 @@ configure_logging(level=LOG_LEVEL)
 logger = get_logger("server")
 auth_logger = get_logger("server.auth.workos")
 callback_logger = get_logger("server.auth.workos.callback")
+token_logger = get_logger("server.auth.token")
 workos_provider_logger = logging.getLogger("FastMCP.fastmcp.server.auth.providers.workos")
 
 if os.getenv("FASTMCP_WORKOS_DEBUG", "false").strip().lower() in {"1", "true", "yes", "on"}:
@@ -306,6 +309,60 @@ Reddit MCP Server - Three-Layer Architecture
 Quick Start: Read reddit://server-info for complete documentation.
 """)
 
+# Enhanced logging middleware with token debugging
+class TokenDebugMiddleware:
+    """Middleware to debug OAuth token validation."""
+
+    def __init__(self, logger):
+        self.logger = logger
+        self.request_count = 0
+
+    async def __call__(self, request, call_next):
+        self.request_count += 1
+        auth_header = request.headers.get("Authorization", "")
+
+        if auth_header:
+            token_prefix = auth_header[:20] + "..." if len(auth_header) > 20 else auth_header
+
+            # Log token details
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:]
+                try:
+                    # Decode without verification to inspect claims
+                    decoded = jwt.decode(token, options={"verify_signature": False})
+                    self.logger.info(
+                        "Token validation attempt | request_num=%d client_id=%s exp=%s scope=%s",
+                        self.request_count,
+                        decoded.get("sub", "unknown"),
+                        decoded.get("exp", "unknown"),
+                        decoded.get("scope", "unknown")
+                    )
+                except Exception as e:
+                    self.logger.warning(
+                        "Token decode failed | request_num=%d error=%s",
+                        self.request_count,
+                        str(e)
+                    )
+            else:
+                self.logger.info(
+                    "Non-bearer auth | request_num=%d type=%s",
+                    self.request_count,
+                    auth_header.split()[0] if auth_header else "empty"
+                )
+
+        # Process the request
+        response = await call_next(request)
+
+        # Log response status
+        if response.status_code == 401:
+            self.logger.warning(
+                "Auth rejected | request_num=%d path=%s status=401",
+                self.request_count,
+                request.url.path
+            )
+
+        return response
+
 # Log incoming MCP messages for debugging client interactions
 mcp.add_middleware(
     LoggingMiddleware(
@@ -314,6 +371,56 @@ mcp.add_middleware(
         max_payload_length=1000,
     )
 )
+
+# Add token debugging middleware
+if os.getenv("FASTMCP_DEBUG_TOKENS", "false").lower() in {"1", "true", "yes", "on"}:
+    mcp.add_middleware(TokenDebugMiddleware(token_logger))
+    token_logger.info("Token debugging middleware enabled")
+
+# Add diagnostic endpoint for auth debugging
+@mcp.custom_route("/debug/auth", methods=["GET"])
+async def debug_auth(request: Request) -> Response:
+    """Debug endpoint to check authentication status and configuration."""
+    auth_header = request.headers.get("Authorization", "")
+
+    debug_info = {
+        "auth_enabled": bool(auth),
+        "auth_mode": AUTH_CONFIGURATION.get("mode", "none"),
+        "has_auth_header": bool(auth_header),
+        "auth_header_type": auth_header.split()[0] if auth_header else None,
+        "server_pid": os.getpid(),
+        "python_version": sys.version,
+        "fastmcp_version": getattr(mcp, "__version__", "unknown"),
+        "timestamp": datetime.now().isoformat(),
+    }
+
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        try:
+            # Try to decode without verification to see claims
+            decoded = jwt.decode(token, options={"verify_signature": False})
+            debug_info["token_claims"] = {
+                "client_id": decoded.get("sub", "unknown"),
+                "exp": decoded.get("exp", "unknown"),
+                "iat": decoded.get("iat", "unknown"),
+                "scope": decoded.get("scope", "unknown"),
+                "iss": decoded.get("iss", "unknown"),
+            }
+
+            # Check if token is expired
+            import time
+            if "exp" in decoded and isinstance(decoded["exp"], (int, float)):
+                debug_info["token_expired"] = time.time() > decoded["exp"]
+                debug_info["token_ttl_remaining"] = max(0, decoded["exp"] - time.time())
+        except Exception as e:
+            debug_info["token_decode_error"] = str(e)
+
+    token_logger.info(
+        "Auth debug request | info=%s",
+        json.dumps(debug_info, indent=2)
+    )
+
+    return JSONResponse(debug_info)
 
 # Add OAuth callback handler for MCP clients
 @mcp.custom_route(AUTH_CALLBACK_PATH, methods=["GET"])
