@@ -5,6 +5,7 @@ import sys
 import os
 import json
 import logging
+import time
 from pathlib import Path
 from datetime import datetime
 from starlette.requests import Request
@@ -92,6 +93,7 @@ def resolve_base_url(port: int) -> str:
 
 def configure_workos_auth(callback_path: str, port: int) -> Tuple[Optional[Any], Dict[str, Any]]:
     """Configure WorkOS authentication provider if environment variables are present."""
+    start_time = time.time()
     info: Dict[str, Any] = {
         "base_url": resolve_base_url(port),
         "callback_path": callback_path,
@@ -99,6 +101,12 @@ def configure_workos_auth(callback_path: str, port: int) -> Tuple[Optional[Any],
     }
     info['callback_url'] = f"{info['base_url'].rstrip('/')}{callback_path}"
     info['resource_url'] = f"{info['base_url'].rstrip('/')}/mcp"
+
+    # Check for explicit auth disable flag for testing
+    if os.getenv("FASTMCP_DISABLE_AUTH", "false").strip().lower() in {"1", "true", "yes", "on"}:
+        auth_logger.warning("Authentication disabled via FASTMCP_DISABLE_AUTH environment variable")
+        return None, {"mode": "disabled", "reason": "explicit_disable"}
+
     raw_mode = (os.getenv("FASTMCP_SERVER_AUTH_WORKOS_MODE") or "auto").strip().lower()
     allowed_modes = {"auto", "authkit", "dcr", "oauth", "connect", "proxy"}
     if raw_mode not in allowed_modes:
@@ -108,11 +116,21 @@ def configure_workos_auth(callback_path: str, port: int) -> Tuple[Optional[Any],
 
     try:
         from fastmcp.server.auth.providers.workos import AuthKitProvider, WorkOSProvider
-    except ImportError:
-        auth_logger.warning("WorkOS auth provider not available; running without authentication")
+    except ImportError as e:
+        auth_logger.warning(
+            "WorkOS auth provider not available | error=%s python=%s platform=%s",
+            str(e),
+            sys.version,
+            sys.platform
+        )
         return None, info
     except Exception as import_error:
-        auth_logger.error("Failed to import WorkOS auth provider", exc_info=import_error)
+        auth_logger.error(
+            "Failed to import WorkOS auth provider | python=%s platform=%s",
+            sys.version,
+            sys.platform,
+            exc_info=import_error
+        )
         return None, info
 
     authkit_domain = (
@@ -157,6 +175,10 @@ def configure_workos_auth(callback_path: str, port: int) -> Tuple[Optional[Any],
             if required_scopes:
                 info["scopes"] = required_scopes
             _log_common("WorkOS AuthKit configured with DCR")
+            auth_logger.info(
+                "Auth provider initialized | duration_ms=%.2f mode=authkit",
+                (time.time() - start_time) * 1000
+            )
             return provider, info
         except Exception as authkit_error:
             auth_logger.error("Failed to configure WorkOS AuthKit", exc_info=authkit_error)
@@ -187,6 +209,10 @@ def configure_workos_auth(callback_path: str, port: int) -> Tuple[Optional[Any],
             masked_client = client_id[-6:] if len(client_id) > 6 else client_id
             _log_common("WorkOS OAuth proxy configured (Connect)")
             auth_logger.info("WorkOS client configured | client_id_suffix=...%s", masked_client)
+            auth_logger.info(
+                "Auth provider initialized | duration_ms=%.2f mode=oauth",
+                (time.time() - start_time) * 1000
+            )
             return provider, info
         except Exception as oauth_error:
             auth_logger.error("Failed to configure WorkOS OAuth provider", exc_info=oauth_error)
@@ -220,8 +246,39 @@ AUTH_CALLBACK_PATH = normalize_callback_path(
     or os.getenv("WORKOS_REDIRECT_PATH")
     or "/auth/callback"
 )
+# Detect client type for debugging
+is_codex_cli = (
+    os.getenv("CODEX_CLI_VERSION") or
+    "codex" in os.getenv("MCP_CLIENT", "").lower() or
+    "codex" in os.getenv("USER_AGENT", "").lower()
+)
+
+if is_codex_cli:
+    auth_logger.info(
+        "Detected Codex CLI client | version=%s user_agent=%s",
+        os.getenv("CODEX_CLI_VERSION", "unknown"),
+        os.getenv("USER_AGENT", "not_set")
+    )
+
+# Log server startup information
+auth_logger.info(
+    "MCP server starting | transport=stdio pid=%s parent_pid=%s python=%s platform=%s",
+    os.getpid(),
+    os.getppid(),
+    sys.version.split()[0],
+    sys.platform
+)
+
 auth, AUTH_CONFIGURATION = configure_workos_auth(AUTH_CALLBACK_PATH, DEFAULT_HTTP_PORT)
 AUTH_CALLBACK_PATH = AUTH_CONFIGURATION.get("callback_path", AUTH_CALLBACK_PATH)
+
+# Log MCP initialization status
+auth_logger.info(
+    "MCP initialization | auth_enabled=%s auth_mode=%s timeout_seconds=30 client_type=%s",
+    bool(auth),
+    AUTH_CONFIGURATION.get("mode", "none"),
+    "codex" if is_codex_cli else "unknown"
+)
 
 # Initialize MCP server with optional authentication
 mcp = FastMCP("Reddit MCP", auth=auth, instructions="""
