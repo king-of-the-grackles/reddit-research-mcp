@@ -386,7 +386,7 @@ wheels = [
 
 [[package]]
 name = "fastmcp"
-version = "2.11.3"
+version = "2.12.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "authlib" },
@@ -401,9 +401,9 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "rich" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/06/80/13aec687ec21727b0fe6d26c6fe2febb33ae24e24c980929a706db3a8bc2/fastmcp-2.11.3.tar.gz", hash = "sha256:e8e3834a3e0b513712b8e63a6f0d4cbe19093459a1da3f7fbf8ef2810cfd34e3", size = 2692092 }
+sdist = { url = "https://files.pythonhosted.org/packages/a8/b2/57845353a9bc63002995a982e66f3d0be4ec761e7bcb89e7d0638518d42a/fastmcp-2.12.4.tar.gz", hash = "sha256:b55fe89537038f19d0f4476544f9ca5ac171033f61811cc8f12bdeadcbea5016", size = 7167745 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/05/63f63ad5b6789a730d94b8cb3910679c5da1ed5b4e38c957140ac9edcf0e/fastmcp-2.11.3-py3-none-any.whl", hash = "sha256:28f22126c90fd36e5de9cc68b9c271b6d832dcf322256f23d220b68afb3352cc", size = 260231 },
+    { url = "https://files.pythonhosted.org/packages/e2/c7/562ff39f25de27caec01e4c1e88cbb5fcae5160802ba3d90be33165df24f/fastmcp-2.12.4-py3-none-any.whl", hash = "sha256:56188fbbc1a9df58c537063f25958c57b5c4d715f73e395c41b51550b247d140", size = 329090 },
 ]
 
 [[package]]
@@ -1338,7 +1338,7 @@ wheels = [
 
 [[package]]
 name = "reddit-research-mcp"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -1362,7 +1362,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.12.15" },
-    { name = "fastmcp", specifier = ">=0.8.0" },
+    { name = "fastmcp", specifier = ">=2.12.4" },
     { name = "openai-agents", specifier = ">=0.2.8" },
     { name = "praw", specifier = ">=7.7.1" },
     { name = "pydantic", specifier = ">=2.0.0" },

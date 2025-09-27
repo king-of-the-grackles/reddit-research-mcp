@@ -1,11 +1,16 @@
 from fastmcp import FastMCP
 from fastmcp.prompts import Message
+from fastmcp.server.auth.providers.descope import DescopeProvider
 from typing import Optional, Literal, List, Union, Dict, Any, Annotated
 import sys
 import os
 import json
 from pathlib import Path
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -17,9 +22,15 @@ from src.tools.comments import fetch_submission_with_comments
 from src.tools.discover import discover_subreddits
 from src.resources import register_resources
 
+# Configure Descope authentication
+auth = DescopeProvider(
+    project_id=os.getenv("DESCOPE_PROJECT_ID"),
+    base_url=os.getenv("SERVER_URL", "http://localhost:8000"),
+    descope_base_url=os.getenv("DESCOPE_BASE_URL", "https://api.descope.com")
+)
 
-# Initialize MCP server
-mcp = FastMCP("Reddit MCP", instructions="""
+# Initialize MCP server with authentication
+mcp = FastMCP("Reddit MCP", auth=auth, instructions="""
 Reddit MCP Server - Three-Layer Architecture
 
 🎯 ALWAYS FOLLOW THIS WORKFLOW:
