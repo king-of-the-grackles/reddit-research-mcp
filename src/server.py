@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
+from starlette.responses import Response, JSONResponse
 
 # Load environment variables from .env file
 load_dotenv()
@@ -54,6 +55,69 @@ Reddit MCP Server - Three-Layer Architecture
 
 Quick Start: Read reddit://server-info for complete documentation.
 """)
+
+# Add public health check endpoint (no auth required)
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request) -> Response:
+    """Public health check endpoint - no authentication required.
+
+    Allows clients to verify the server is running before attempting OAuth.
+    """
+    try:
+        return JSONResponse({
+            "status": "ok",
+            "server": "Reddit MCP",
+            "version": "1.0.0",
+            "auth_required": True,
+            "auth_endpoint": "/.well-known/oauth-authorization-server"
+        })
+    except Exception as e:
+        print(f"ERROR: Health check failed: {e}", flush=True)
+        return JSONResponse(
+            {"status": "error", "message": str(e)},
+            status_code=500
+        )
+
+# Add public server info endpoint (no auth required)
+@mcp.custom_route("/server-info", methods=["GET"])
+async def server_info(request) -> Response:
+    """Public server information endpoint - no authentication required.
+
+    Provides server metadata and capabilities to help clients understand
+    what authentication and features are available.
+    """
+    try:
+        print(f"Server info requested from {request.client.host if request.client else 'unknown'}", flush=True)
+        return JSONResponse({
+            "name": "Reddit MCP",
+            "version": "1.0.0",
+            "description": "Reddit research and analysis tools with semantic subreddit discovery",
+            "authentication": {
+                "required": True,
+                "type": "oauth2",
+                "provider": "descope",
+                "authorization_server": f"{os.getenv('SERVER_URL', 'http://localhost:8000')}/.well-known/oauth-authorization-server"
+            },
+            "capabilities": {
+                "tools": ["discover_operations", "get_operation_schema", "execute_operation"],
+                "tools_count": 3,
+                "supports_resources": True,
+                "supports_prompts": True,
+                "reddit_operations": {
+                    "discover_subreddits": "Semantic search for relevant communities",
+                    "search_subreddit": "Search within a specific subreddit",
+                    "fetch_posts": "Get posts from a subreddit",
+                    "fetch_multiple": "Batch fetch from multiple subreddits",
+                    "fetch_comments": "Get complete comment trees"
+                }
+            }
+        })
+    except Exception as e:
+        print(f"ERROR: Server info request failed: {e}", flush=True)
+        return JSONResponse(
+            {"status": "error", "message": str(e)},
+            status_code=500
+        )
 
 # Initialize Reddit client (will be updated with config when available)
 reddit = None

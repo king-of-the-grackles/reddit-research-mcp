@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "reddit-research-mcp": {
+      "httpUrl": "https://reddit-research-mcp.fastmcp.app/mcp"
+    },
+    "local-reddit-research-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://localhost:8000/mcp",
+        "--auth-timeout",
+        "90",
+        "--allow-http",
+        "--debug"
+      ]
+    }
+  }
+}
