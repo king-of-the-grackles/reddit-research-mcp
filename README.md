@@ -32,13 +32,20 @@ cursor://anysphere.cursor-deeplink/mcp/install?name=reddit-research-mcp&config=e
 
 ### OpenAI Codex CLI
 ```bash
-codex -c 'mcp_servers.reddit-research-mcp.command=npx' \
-      -c 'mcp_servers.reddit-research-mcp.args=["-y", "mcp-remote@latest", "https://reddit-research-mcp.fastmcp.app/mcp"]'
+codex mcp add reddit-research-mcp \
+    npx -y mcp-remote \
+    https://reddit-research-mcp.fastmcp.app/mcp \
+    --auth-timeout 120 \
+    --allow-http \
 ```
 
 ### Gemini CLI
 ```bash
-gemini mcp add reddit-research-mcp https://reddit-research-mcp.fastmcp.app/mcp --transport http
+gemini mcp add reddit-research-mcp \
+  npx -y mcp-remote \
+  https://reddit-research-mcp.fastmcp.app/mcp \
+  --auth-timeout 120 \
+  --allow-http
 ```
 
 ### Direct MCP Server URL
