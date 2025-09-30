@@ -144,3 +144,8 @@ fastmcp.db
 # MCP Registry files
 .mcpregistry_*
 mcp-publisher
+
+# Development & Research directories
+fastmcp/
+mcp-remote/
+ai/
