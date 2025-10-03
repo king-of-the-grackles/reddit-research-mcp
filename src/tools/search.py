@@ -1,6 +1,7 @@
 from typing import Optional, Dict, Any, Literal
 import praw
 from prawcore import NotFound, Forbidden
+from fastmcp import Context
 from ..models import SearchResult, RedditPost
 
 
@@ -10,11 +11,12 @@ def search_in_subreddit(
     reddit: praw.Reddit,
     sort: Literal["relevance", "hot", "top", "new"] = "relevance",
     time_filter: Literal["all", "year", "month", "week", "day"] = "all",
-    limit: int = 10
+    limit: int = 10,
+    ctx: Context = None
 ) -> Dict[str, Any]:
     """
     Search for posts within a specific subreddit.
-    
+
     Args:
         subreddit_name: Name of the subreddit to search in (required)
         query: Search query string
@@ -22,10 +24,13 @@ def search_in_subreddit(
         sort: Sort method for results
         time_filter: Time filter for results
         limit: Maximum number of results (max 100, default 10)
-    
+        ctx: FastMCP context (auto-injected by decorator)
+
     Returns:
         Dictionary containing search results from the specified subreddit
     """
+    # Phase 1: Accept context but don't use it yet
+
     try:
         # Validate limit
         limit = min(max(1, limit), 100)

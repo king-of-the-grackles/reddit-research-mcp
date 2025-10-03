@@ -1,4 +1,4 @@
-from fastmcp import FastMCP
+from fastmcp import FastMCP, Context
 from fastmcp.prompts import Message
 from fastmcp.server.auth.providers.descope import DescopeProvider
 from typing import Optional, Literal, List, Union, Dict, Any, Annotated
@@ -143,11 +143,12 @@ except Exception as e:
     description="Discover available Reddit operations and recommended workflows",
     annotations={"readOnlyHint": True}
 )
-def discover_operations() -> Dict[str, Any]:
+def discover_operations(ctx: Context) -> Dict[str, Any]:
     """
     LAYER 1: Discover what operations this MCP server provides.
     Start here to understand available capabilities.
     """
+    # Phase 1: Accept context but don't use it yet
     return {
         "operations": {
             "discover_subreddits": "Find relevant communities using semantic search",
@@ -176,12 +177,14 @@ def discover_operations() -> Dict[str, Any]:
 )
 def get_operation_schema(
     operation_id: Annotated[str, "Operation ID from discover_operations"],
-    include_examples: Annotated[bool, "Include example parameter values"] = True
+    include_examples: Annotated[bool, "Include example parameter values"] = True,
+    ctx: Context = None
 ) -> Dict[str, Any]:
     """
     LAYER 2: Get parameter requirements for an operation.
     Use after discover_operations to understand how to call operations.
     """
+    # Phase 1: Accept context but don't use it yet
     schemas = {
         "discover_subreddits": {
             "description": "Find communities using semantic vector search",
@@ -372,14 +375,17 @@ def get_operation_schema(
 @mcp.tool(
     description="Execute a Reddit operation with validated parameters"
 )
-def execute_operation(
+async def execute_operation(
     operation_id: Annotated[str, "Operation to execute"],
-    parameters: Annotated[Dict[str, Any], "Parameters matching the schema"]
+    parameters: Annotated[Dict[str, Any], "Parameters matching the schema"],
+    ctx: Context = None
 ) -> Dict[str, Any]:
     """
     LAYER 3: Execute a Reddit operation.
     Only use after getting schema from get_operation_schema.
     """
+    # Phase 1: Accept context but don't use it yet
+
     # Operation mapping
     operations = {
         "discover_subreddits": discover_subreddits,
@@ -388,24 +394,27 @@ def execute_operation(
         "fetch_multiple": fetch_multiple_subreddits,
         "fetch_comments": fetch_submission_with_comments
     }
-    
+
     if operation_id not in operations:
         return {
             "success": False,
             "error": f"Unknown operation: {operation_id}",
             "available_operations": list(operations.keys())
         }
-    
+
     try:
-        # Only add reddit client for operations that need it
+        # Add reddit client and context to params for operations that need them
         if operation_id in ["search_subreddit", "fetch_posts", "fetch_multiple", "fetch_comments"]:
-            params = {**parameters, "reddit": reddit}
+            params = {**parameters, "reddit": reddit, "ctx": ctx}
         else:
-            params = parameters
-        
-        # Execute operation
-        result = operations[operation_id](**params)
-        
+            params = {**parameters, "ctx": ctx}
+
+        # Execute operation with await for async operations
+        if operation_id in ["discover_subreddits", "fetch_multiple", "fetch_comments"]:
+            result = await operations[operation_id](**params)
+        else:
+            result = operations[operation_id](**params)
+
         return {
             "success": True,
             "data": result

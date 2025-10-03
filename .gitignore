@@ -148,4 +148,4 @@ mcp-publisher
 # Development & Research directories
 fastmcp/
 mcp-remote/
-ai/
+ai/*.rtf

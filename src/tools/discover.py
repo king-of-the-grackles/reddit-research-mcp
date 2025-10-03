@@ -3,31 +3,36 @@
 import os
 import json
 from typing import Dict, List, Optional, Union, Any
+from fastmcp import Context
 from ..chroma_client import get_chroma_client, get_collection
 
 
-def discover_subreddits(
+async def discover_subreddits(
     query: Optional[str] = None,
     queries: Optional[Union[List[str], str]] = None,
     limit: int = 10,
-    include_nsfw: bool = False
+    include_nsfw: bool = False,
+    ctx: Context = None
 ) -> Dict[str, Any]:
     """
     Search for subreddits using semantic similarity search.
-    
+
     Finds relevant subreddits based on semantic embeddings of subreddit names,
     descriptions, and community metadata.
-    
+
     Args:
         query: Single search term to find subreddits
-        queries: List of search terms for batch discovery (more efficient) 
+        queries: List of search terms for batch discovery (more efficient)
                  Can also be a JSON string like '["term1", "term2"]'
         limit: Maximum number of results per query (default 10)
         include_nsfw: Whether to include NSFW subreddits (default False)
-    
+        ctx: FastMCP context (auto-injected by decorator)
+
     Returns:
         Dictionary with discovered subreddits and their metadata
     """
+    # Phase 1: Accept context but don't use it yet
+
     # Initialize ChromaDB client
     try:
         client = get_chroma_client()
@@ -63,8 +68,8 @@ def discover_subreddits(
         total_api_calls = 0
         
         for search_query in queries:
-            result = _search_vector_db(
-                search_query, collection, limit, include_nsfw
+            result = await _search_vector_db(
+                search_query, collection, limit, include_nsfw, ctx
             )
             batch_results[search_query] = result
             total_api_calls += 1
@@ -79,7 +84,7 @@ def discover_subreddits(
     
     # Handle single query
     elif query:
-        return _search_vector_db(query, collection, limit, include_nsfw)
+        return await _search_vector_db(query, collection, limit, include_nsfw, ctx)
     
     else:
         return {
@@ -93,13 +98,16 @@ def discover_subreddits(
         }
 
 
-def _search_vector_db(
+async def _search_vector_db(
     query: str,
     collection,
     limit: int,
-    include_nsfw: bool
+    include_nsfw: bool,
+    ctx: Context = None
 ) -> Dict[str, Any]:
     """Internal function to perform semantic search for a single query."""
+    # Phase 1: Accept context but don't use it yet
+
     try:
         # Search with a larger limit to allow for filtering
         search_limit = min(limit * 3, 100)  # Get extra results for filtering
@@ -125,11 +133,20 @@ def _search_vector_db(
         # Process results
         processed_results = []
         nsfw_filtered = 0
-        
-        for metadata, distance in zip(
+        total_results = len(results['metadatas'][0])
+
+        for i, (metadata, distance) in enumerate(zip(
             results['metadatas'][0],
             results['distances'][0]
-        ):
+        )):
+            # Report progress
+            if ctx:
+                await ctx.report_progress(
+                    progress=i + 1,
+                    total=total_results,
+                    message=f"Analyzing r/{metadata.get('name', 'unknown')}"
+                )
+
             # Skip NSFW if not requested
             if metadata.get('nsfw', False) and not include_nsfw:
                 nsfw_filtered += 1
@@ -232,20 +249,24 @@ def _search_vector_db(
 
 
 def validate_subreddit(
-    subreddit_name: str
+    subreddit_name: str,
+    ctx: Context = None
 ) -> Dict[str, Any]:
     """
     Validate if a subreddit exists in the indexed database.
-    
+
     Checks if the subreddit exists in our semantic search index
     and returns its metadata if found.
-    
+
     Args:
         subreddit_name: Name of the subreddit to validate
-    
+        ctx: FastMCP context (optional)
+
     Returns:
         Dictionary with validation result and subreddit info if found
     """
+    # Phase 1: Accept context but don't use it yet
+
     # Clean the subreddit name
     clean_name = subreddit_name.replace("r/", "").replace("/r/", "").strip()
     
