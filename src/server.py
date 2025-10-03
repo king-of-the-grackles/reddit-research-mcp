@@ -375,7 +375,7 @@ def get_operation_schema(
 @mcp.tool(
     description="Execute a Reddit operation with validated parameters"
 )
-def execute_operation(
+async def execute_operation(
     operation_id: Annotated[str, "Operation to execute"],
     parameters: Annotated[Dict[str, Any], "Parameters matching the schema"],
     ctx: Context = None
@@ -409,9 +409,12 @@ def execute_operation(
         else:
             params = {**parameters, "ctx": ctx}
 
-        # Execute operation
-        result = operations[operation_id](**params)
-        
+        # Execute operation with await for async operations
+        if operation_id in ["discover_subreddits", "fetch_multiple", "fetch_comments"]:
+            result = await operations[operation_id](**params)
+        else:
+            result = operations[operation_id](**params)
+
         return {
             "success": True,
             "data": result

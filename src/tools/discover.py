@@ -7,7 +7,7 @@ from fastmcp import Context
 from ..chroma_client import get_chroma_client, get_collection
 
 
-def discover_subreddits(
+async def discover_subreddits(
     query: Optional[str] = None,
     queries: Optional[Union[List[str], str]] = None,
     limit: int = 10,
@@ -68,7 +68,7 @@ def discover_subreddits(
         total_api_calls = 0
         
         for search_query in queries:
-            result = _search_vector_db(
+            result = await _search_vector_db(
                 search_query, collection, limit, include_nsfw, ctx
             )
             batch_results[search_query] = result
@@ -84,7 +84,7 @@ def discover_subreddits(
     
     # Handle single query
     elif query:
-        return _search_vector_db(query, collection, limit, include_nsfw, ctx)
+        return await _search_vector_db(query, collection, limit, include_nsfw, ctx)
     
     else:
         return {
@@ -98,7 +98,7 @@ def discover_subreddits(
         }
 
 
-def _search_vector_db(
+async def _search_vector_db(
     query: str,
     collection,
     limit: int,
@@ -133,11 +133,20 @@ def _search_vector_db(
         # Process results
         processed_results = []
         nsfw_filtered = 0
-        
-        for metadata, distance in zip(
+        total_results = len(results['metadatas'][0])
+
+        for i, (metadata, distance) in enumerate(zip(
             results['metadatas'][0],
             results['distances'][0]
-        ):
+        )):
+            # Report progress
+            if ctx:
+                await ctx.report_progress(
+                    progress=i + 1,
+                    total=total_results,
+                    message=f"Analyzing r/{metadata.get('name', 'unknown')}"
+                )
+
             # Skip NSFW if not requested
             if metadata.get('nsfw', False) and not include_nsfw:
                 nsfw_filtered += 1

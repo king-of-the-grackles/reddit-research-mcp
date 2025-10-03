@@ -153,7 +153,7 @@ class TestFetchSubredditPosts:
 
 
 class TestFetchSubmissionWithComments:
-    def test_fetch_submission_success(self, mock_context):
+    async def test_fetch_submission_success(self, mock_context):
         """Test successful fetching of submission with comments."""
         mock_reddit = Mock()
         mock_submission = create_mock_submission()
@@ -172,7 +172,7 @@ class TestFetchSubmissionWithComments:
 
         mock_reddit.submission.return_value = mock_submission
 
-        result = fetch_submission_with_comments(
+        result = await fetch_submission_with_comments(
             reddit=mock_reddit,
             submission_id="test123",
             comment_limit=10,
@@ -185,13 +185,13 @@ class TestFetchSubmissionWithComments:
         assert len(result["comments"]) == 2
         assert result["comments"][0]["body"] == "First comment"
 
-    def test_fetch_submission_not_found(self, mock_context):
+    async def test_fetch_submission_not_found(self, mock_context):
         """Test fetching non-existent submission."""
         from prawcore import NotFound
         mock_reddit = Mock()
         mock_reddit.submission.side_effect = NotFound(Mock())
 
-        result = fetch_submission_with_comments(
+        result = await fetch_submission_with_comments(
             reddit=mock_reddit,
             submission_id="nonexistent",
             ctx=mock_context
@@ -200,11 +200,11 @@ class TestFetchSubmissionWithComments:
         assert "error" in result
         assert "not found" in result["error"].lower()
 
-    def test_fetch_submission_no_id_or_url(self, mock_context):
+    async def test_fetch_submission_no_id_or_url(self, mock_context):
         """Test error when neither submission_id nor url is provided."""
         mock_reddit = Mock()
 
-        result = fetch_submission_with_comments(
+        result = await fetch_submission_with_comments(
             reddit=mock_reddit,
             ctx=mock_context
         )

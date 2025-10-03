@@ -99,7 +99,7 @@ def fetch_subreddit_posts(
         return {"error": f"Failed to fetch posts: {str(e)}"}
 
 
-def fetch_multiple_subreddits(
+async def fetch_multiple_subreddits(
     subreddit_names: List[str],
     reddit: praw.Reddit,
     listing_type: Literal["hot", "new", "top", "rising"] = "hot",
@@ -152,12 +152,24 @@ def fetch_multiple_subreddits(
             
             # Parse posts and group by subreddit
             posts_by_subreddit = {}
+            processed_subreddits = set()
+
             for submission in submissions:
                 subreddit_name = submission.subreddit.display_name
-                
+
+                # Report progress when encountering a new subreddit
+                if subreddit_name not in processed_subreddits:
+                    processed_subreddits.add(subreddit_name)
+                    if ctx:
+                        await ctx.report_progress(
+                            progress=len(processed_subreddits),
+                            total=len(clean_names),
+                            message=f"Fetching r/{subreddit_name}"
+                        )
+
                 if subreddit_name not in posts_by_subreddit:
                     posts_by_subreddit[subreddit_name] = []
-                
+
                 # Only add up to limit_per_subreddit posts per subreddit
                 if len(posts_by_subreddit[subreddit_name]) < limit_per_subreddit:
                     posts_by_subreddit[subreddit_name].append({

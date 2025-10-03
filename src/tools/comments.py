@@ -44,7 +44,7 @@ def parse_comment_tree(
     )
 
 
-def fetch_submission_with_comments(
+async def fetch_submission_with_comments(
     reddit: praw.Reddit,
     submission_id: Optional[str] = None,
     url: Optional[str] = None,
@@ -119,6 +119,15 @@ def fetch_submission_with_comments(
             if hasattr(top_level_comment, 'id') and hasattr(top_level_comment, 'body'):
                 if comment_count >= comment_limit:
                     break
+
+                # Report progress before processing comment
+                if ctx:
+                    await ctx.report_progress(
+                        progress=comment_count,
+                        total=comment_limit,
+                        message=f"Loading comments ({comment_count}/{comment_limit})"
+                    )
+
                 if isinstance(top_level_comment, PrawComment):
                     comments.append(parse_comment_tree(top_level_comment, ctx=ctx))
                 else:
@@ -134,7 +143,15 @@ def fetch_submission_with_comments(
                     ))
                 # Count all comments including replies
                 comment_count += 1 + count_replies(comments[-1])
-        
+
+        # Report final completion
+        if ctx:
+            await ctx.report_progress(
+                progress=comment_count,
+                total=comment_limit,
+                message=f"Completed: {comment_count} comments loaded"
+            )
+
         result = SubmissionWithCommentsResult(
             submission=submission_data,
             comments=comments,
