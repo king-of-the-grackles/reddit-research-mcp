@@ -2,30 +2,35 @@ from typing import Optional, Dict, Any, Literal, List
 import praw
 from praw.models import Submission, Comment as PrawComment, MoreComments
 from prawcore import NotFound, Forbidden
+from fastmcp import Context
 from ..models import SubmissionWithCommentsResult, RedditPost, Comment
 
 
 def parse_comment_tree(
     comment: PrawComment,
     depth: int = 0,
-    max_depth: int = 10
+    max_depth: int = 10,
+    ctx: Context = None
 ) -> Comment:
     """
     Recursively parse a comment and its replies into our Comment model.
-    
+
     Args:
         comment: PRAW comment object
         depth: Current depth in the comment tree
         max_depth: Maximum depth to traverse
-    
+        ctx: FastMCP context (optional)
+
     Returns:
         Parsed Comment object with nested replies
     """
+    # Phase 1: Accept context but don't use it yet
+
     replies = []
     if depth < max_depth and hasattr(comment, 'replies'):
         for reply in comment.replies:
             if isinstance(reply, PrawComment):
-                replies.append(parse_comment_tree(reply, depth + 1, max_depth))
+                replies.append(parse_comment_tree(reply, depth + 1, max_depth, ctx))
             # Skip MoreComments objects for simplicity in MVP
     
     return Comment(
@@ -44,21 +49,25 @@ def fetch_submission_with_comments(
     submission_id: Optional[str] = None,
     url: Optional[str] = None,
     comment_limit: int = 100,
-    comment_sort: Literal["best", "top", "new"] = "best"
+    comment_sort: Literal["best", "top", "new"] = "best",
+    ctx: Context = None
 ) -> Dict[str, Any]:
     """
     Fetch a Reddit submission with its comment tree.
-    
+
     Args:
         reddit: Configured Reddit client
         submission_id: Reddit post ID
         url: Full URL to the post (alternative to submission_id)
         comment_limit: Maximum number of comments to fetch
         comment_sort: How to sort comments
-    
+        ctx: FastMCP context (auto-injected by decorator)
+
     Returns:
         Dictionary containing submission and comments
     """
+    # Phase 1: Accept context but don't use it yet
+
     try:
         # Validate that we have either submission_id or url
         if not submission_id and not url:
@@ -111,7 +120,7 @@ def fetch_submission_with_comments(
                 if comment_count >= comment_limit:
                     break
                 if isinstance(top_level_comment, PrawComment):
-                    comments.append(parse_comment_tree(top_level_comment))
+                    comments.append(parse_comment_tree(top_level_comment, ctx=ctx))
                 else:
                     # Handle mock objects in tests
                     comments.append(Comment(
