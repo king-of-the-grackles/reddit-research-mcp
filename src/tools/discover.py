@@ -7,11 +7,89 @@ from fastmcp import Context
 from ..chroma_client import get_chroma_client, get_collection
 
 
+def classify_match_tier(distance: float) -> str:
+    """
+    Classify semantic match quality based on distance.
+
+    Distance scale (Euclidean):
+    - 0.0-0.2: exact (highly relevant)
+    - 0.2-0.35: semantic (very relevant)
+    - 0.35-0.65: adjacent (somewhat relevant)
+    - 0.65+: peripheral (weakly relevant)
+
+    Args:
+        distance: Euclidean distance from query embedding
+
+    Returns:
+        Match tier label: "exact", "semantic", "adjacent", or "peripheral"
+    """
+    if distance < 0.2:
+        return "exact"
+    elif distance < 0.35:
+        return "semantic"
+    elif distance < 0.65:
+        return "adjacent"
+    else:
+        return "peripheral"
+
+
+def calculate_confidence_stats(confidence_scores: List[float]) -> Dict[str, float]:
+    """
+    Calculate statistics about confidence score distribution.
+
+    Args:
+        confidence_scores: List of confidence scores (0.0-1.0)
+
+    Returns:
+        Dictionary with mean, median, min, max, and standard deviation
+    """
+    if not confidence_scores:
+        return {
+            "mean": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "std_dev": 0.0
+        }
+
+    import statistics
+
+    sorted_scores = sorted(confidence_scores)
+    return {
+        "mean": round(statistics.mean(confidence_scores), 3),
+        "median": round(sorted_scores[len(sorted_scores) // 2], 3),
+        "min": round(min(confidence_scores), 3),
+        "max": round(max(confidence_scores), 3),
+        "std_dev": round(statistics.stdev(confidence_scores), 3) if len(confidence_scores) > 1 else 0.0
+    }
+
+
+def calculate_tier_distribution(results: List[Dict[str, Any]]) -> Dict[str, int]:
+    """
+    Count results by match tier.
+
+    Args:
+        results: List of result dictionaries with 'match_tier' field
+
+    Returns:
+        Dictionary with counts for each tier
+    """
+    tier_counts = {"exact": 0, "semantic": 0, "adjacent": 0, "peripheral": 0}
+
+    for result in results:
+        tier = result.get('match_tier', 'peripheral')
+        if tier in tier_counts:
+            tier_counts[tier] += 1
+
+    return tier_counts
+
+
 async def discover_subreddits(
     query: Optional[str] = None,
     queries: Optional[Union[List[str], str]] = None,
     limit: int = 10,
     include_nsfw: bool = False,
+    min_confidence: float = 0.0,
     ctx: Context = None
 ) -> Dict[str, Any]:
     """
@@ -26,6 +104,7 @@ async def discover_subreddits(
                  Can also be a JSON string like '["term1", "term2"]'
         limit: Maximum number of results per query (default 10)
         include_nsfw: Whether to include NSFW subreddits (default False)
+        min_confidence: Minimum confidence score to include (0.0-1.0, default 0.0)
         ctx: FastMCP context (auto-injected by decorator)
 
     Returns:
@@ -69,7 +148,7 @@ async def discover_subreddits(
         
         for search_query in queries:
             result = await _search_vector_db(
-                search_query, collection, limit, include_nsfw, ctx
+                search_query, collection, limit, include_nsfw, min_confidence, ctx
             )
             batch_results[search_query] = result
             total_api_calls += 1
@@ -84,7 +163,7 @@ async def discover_subreddits(
     
     # Handle single query
     elif query:
-        return await _search_vector_db(query, collection, limit, include_nsfw, ctx)
+        return await _search_vector_db(query, collection, limit, include_nsfw, min_confidence, ctx)
     
     else:
         return {
@@ -103,6 +182,7 @@ async def _search_vector_db(
     collection,
     limit: int,
     include_nsfw: bool,
+    min_confidence: float,
     ctx: Context = None
 ) -> Dict[str, Any]:
     """Internal function to perform semantic search for a single query."""
@@ -188,14 +268,26 @@ async def _search_vector_db(
                 match_type = "partial_match"
             else:
                 match_type = "weak_match"
-            
+
+            # Classify match tier for Phase 2a.2
+            match_tier = classify_match_tier(distance)
+
             processed_results.append({
                 "name": metadata.get('name', 'unknown'),
                 "subscribers": metadata.get('subscribers', 0),
                 "confidence": round(confidence, 3),
+                "distance": round(distance, 3),
+                "match_tier": match_tier,
                 "url": metadata.get('url', f"https://reddit.com/r/{metadata.get('name', '')}")
             })
-        
+
+        # Filter by minimum confidence if specified (Phase 2a.3)
+        if min_confidence > 0.0:
+            processed_results = [
+                r for r in processed_results
+                if r['confidence'] >= min_confidence
+            ]
+
         # Sort by confidence (highest first), then by subscribers
         processed_results.sort(key=lambda x: (-x['confidence'], -(x['subscribers'] or 0)))
         
@@ -204,21 +296,28 @@ async def _search_vector_db(
         
         # Calculate basic stats
         total_found = len(processed_results)
-        
+
+        # Calculate confidence statistics (Phase 2a.4)
+        confidence_scores = [r['confidence'] for r in limited_results]
+        confidence_stats = calculate_confidence_stats(confidence_scores)
+        tier_distribution = calculate_tier_distribution(limited_results)
+
         # Generate next actions (only meaningful ones)
         next_actions = []
         if len(processed_results) > limit:
             next_actions.append(f"{len(processed_results)} total results found, showing {limit}")
         if nsfw_filtered > 0:
             next_actions.append(f"{nsfw_filtered} NSFW subreddits filtered")
-        
+
         return {
             "query": query,
             "subreddits": limited_results,
             "summary": {
                 "total_found": total_found,
                 "returned": len(limited_results),
-                "has_more": total_found > len(limited_results)
+                "has_more": total_found > len(limited_results),
+                "confidence_stats": confidence_stats,
+                "tier_distribution": tier_distribution
             },
             "next_actions": next_actions
         }
