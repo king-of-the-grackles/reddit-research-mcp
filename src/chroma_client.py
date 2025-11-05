@@ -28,12 +28,12 @@ class ChromaProxyClient:
         if self.api_key:
             self.session.headers['X-API-Key'] = self.api_key
     
-    def query(self, query_texts: List[str], n_results: int = 10) -> Dict[str, Any]:
+    def query(self, query_texts: List[str], n_results: int = 10, collection_name: str = "dialog-app-prod-db") -> Dict[str, Any]:
         """Query through proxy."""
         try:
             response = self.session.post(
                 f"{self.url}/query",
-                json={"query_texts": query_texts, "n_results": n_results},
+                json={"query_texts": query_texts, "n_results": n_results, "collection_name": collection_name},
                 timeout=10
             )
             response.raise_for_status()
@@ -71,14 +71,14 @@ class ChromaProxyClient:
 
 class ProxyCollection:
     """Wrapper to match Chroma collection interface."""
-    
-    def __init__(self, proxy_client: ChromaProxyClient):
+
+    def __init__(self, proxy_client: ChromaProxyClient, collection_name: str = "dialog-app-prod-db"):
         self.proxy_client = proxy_client
-        self.name = "reddit_subreddits"
-    
+        self.name = collection_name
+
     def query(self, query_texts: List[str], n_results: int = 10) -> Dict[str, Any]:
-        return self.proxy_client.query(query_texts, n_results)
-    
+        return self.proxy_client.query(query_texts, n_results, collection_name=self.name)
+
     def count(self) -> int:
         return self.proxy_client.count()
 # ============= END PROXY CLIENT CLASSES =============
@@ -111,23 +111,23 @@ def reset_client_cache():
 
 
 def get_collection(
-    collection_name: str = "reddit_subreddits",
+    collection_name: str = "dialog-app-prod-db",
     client = None
 ):
     """
     Get ProxyCollection for vector database access.
-    
+
     Args:
-        collection_name: Name of the collection (always "reddit_subreddits")
+        collection_name: Name of the collection (default "dialog-app-prod-db")
         client: Optional client instance (uses default if not provided)
-    
+
     Returns:
         ProxyCollection instance
     """
     if client is None:
         client = get_chroma_client()
-    
-    return ProxyCollection(client)
+
+    return ProxyCollection(client, collection_name=collection_name)
 
 
 def test_connection() -> dict:
