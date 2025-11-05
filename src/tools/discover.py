@@ -115,7 +115,7 @@ async def discover_subreddits(
     # Initialize ChromaDB client
     try:
         client = get_chroma_client()
-        collection = get_collection("reddit_subreddits", client)
+        collection = get_collection("dialog-app-prod-db", client)
         
     except Exception as e:
         return {
@@ -368,11 +368,11 @@ def validate_subreddit(
 
     # Clean the subreddit name
     clean_name = subreddit_name.replace("r/", "").replace("/r/", "").strip()
-    
+
     try:
         # Search for exact match in vector database
         client = get_chroma_client()
-        collection = get_collection("reddit_subreddits", client)
+        collection = get_collection("dialog-app-prod-db", client)
         
         # Search for the exact subreddit name
         results = collection.query(
