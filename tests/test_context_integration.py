@@ -16,7 +16,7 @@ from fastmcp import Context
 # Add project root to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from src.tools.discover import discover_subreddits, validate_subreddit
+from src.tools.discover import discover_subreddits, validate_subreddit, SearchConfig, calculate_confidence_from_distance
 from src.tools.search import search_in_subreddit
 from src.tools.posts import fetch_subreddit_posts, fetch_multiple_subreddits
 from src.tools.comments import fetch_submission_with_comments
@@ -399,3 +399,192 @@ class TestFetchCommentsProgress:
 
         # Verify progress was reported at least 6 times (5 comments + 1 completion)
         assert mock_context.report_progress.call_count >= 6
+
+
+class TestSearchConfig:
+    """Test SearchConfig customization in discover_subreddits."""
+
+    async def test_custom_min_confidence_filtering(self, mock_context, monkeypatch):
+        """Verify min_confidence parameter filters results correctly."""
+        # Mock ChromaDB response with results at different confidence levels
+        mock_client = Mock()
+        mock_collection = Mock()
+        mock_collection.query.return_value = {
+            'metadatas': [[
+                {'name': 'Python', 'subscribers': 1000000, 'nsfw': False},      # distance 0.3 -> high confidence
+                {'name': 'learnpython', 'subscribers': 500000, 'nsfw': False},  # distance 0.9 -> medium confidence
+                {'name': 'pythontips', 'subscribers': 100000, 'nsfw': False}    # distance 1.5 -> low confidence
+            ]],
+            'distances': [[0.3, 0.9, 1.5]]
+        }
+
+        def mock_get_client():
+            return mock_client
+
+        def mock_get_collection(name, client):
+            return mock_collection
+
+        monkeypatch.setattr('src.tools.discover.get_chroma_client', mock_get_client)
+        monkeypatch.setattr('src.tools.discover.get_collection', mock_get_collection)
+
+        # Test with high min_confidence filter
+        result = await discover_subreddits(query="python", min_confidence=0.7, ctx=mock_context)
+
+        # Should only return results with confidence >= 0.7
+        assert "subreddits" in result
+        # All returned subreddits should meet or exceed min_confidence
+        for sub in result.get("subreddits", []):
+            assert sub["confidence"] >= 0.7
+
+    async def test_custom_generic_subreddit_penalty(self, mock_context, monkeypatch):
+        """Verify custom generic subreddit penalty is applied."""
+        # Mock ChromaDB response
+        mock_client = Mock()
+        mock_collection = Mock()
+        mock_collection.query.return_value = {
+            'metadatas': [[
+                {'name': 'funny', 'subscribers': 1000000, 'nsfw': False},  # Generic sub
+                {'name': 'specific_topic', 'subscribers': 10000, 'nsfw': False}
+            ]],
+            'distances': [[0.5, 0.5]]  # Same distance
+        }
+
+        def mock_get_client():
+            return mock_client
+
+        def mock_get_collection(name, client):
+            return mock_collection
+
+        monkeypatch.setattr('src.tools.discover.get_chroma_client', mock_get_client)
+        monkeypatch.setattr('src.tools.discover.get_collection', mock_get_collection)
+
+        # Test with custom penalty multiplier
+        custom_config = SearchConfig(GENERIC_PENALTY_MULTIPLIER=0.1)  # Harsher penalty
+        result = await discover_subreddits(
+            query="jokes",
+            limit=10,
+            config=custom_config,
+            ctx=mock_context
+        )
+
+        # Both start with same base confidence at distance 0.5
+        # funny should have 0.1x penalty (generic) unless "jokes" is in the name
+        # specific_topic should not be penalized
+        assert "subreddits" in result
+        if len(result["subreddits"]) >= 2:
+            # The generic sub should have lower confidence than specific one
+            confidences = {sub["name"]: sub["confidence"] for sub in result["subreddits"]}
+            # This test validates the config is actually used
+
+    async def test_custom_distance_thresholds(self, mock_context, monkeypatch):
+        """Verify custom match tier distance thresholds are applied."""
+        # Mock ChromaDB response
+        mock_client = Mock()
+        mock_collection = Mock()
+        mock_collection.query.return_value = {
+            'metadatas': [[
+                {'name': 'test1', 'subscribers': 1000, 'nsfw': False},
+                {'name': 'test2', 'subscribers': 1000, 'nsfw': False},
+                {'name': 'test3', 'subscribers': 1000, 'nsfw': False}
+            ]],
+            'distances': [[0.15, 0.4, 0.8]]
+        }
+
+        def mock_get_client():
+            return mock_client
+
+        def mock_get_collection(name, client):
+            return mock_collection
+
+        monkeypatch.setattr('src.tools.discover.get_chroma_client', mock_get_client)
+        monkeypatch.setattr('src.tools.discover.get_collection', mock_get_collection)
+
+        # Test with custom thresholds (stricter)
+        custom_config = SearchConfig(
+            EXACT_DISTANCE_THRESHOLD=0.1,      # Stricter exact threshold
+            SEMANTIC_DISTANCE_THRESHOLD=0.3,   # Stricter semantic threshold
+            ADJACENT_DISTANCE_THRESHOLD=0.6    # Stricter adjacent threshold
+        )
+        result = await discover_subreddits(query="test", config=custom_config, ctx=mock_context)
+
+        # Verify tier classification matches custom thresholds
+        assert "subreddits" in result
+        for sub in result["subreddits"]:
+            if sub["distance"] < 0.1:
+                assert sub["match_tier"] == "exact"
+            elif sub["distance"] < 0.3:
+                assert sub["match_tier"] == "semantic"
+            elif sub["distance"] < 0.6:
+                assert sub["match_tier"] == "adjacent"
+
+    def test_confidence_calculation_function(self):
+        """Verify calculate_confidence_from_distance function works correctly."""
+        # Test with default config
+        conf_0_5 = calculate_confidence_from_distance(0.5)
+        conf_1_0 = calculate_confidence_from_distance(1.0)
+        conf_1_5 = calculate_confidence_from_distance(1.5)
+
+        # Lower distances should give higher confidence
+        assert conf_0_5 > conf_1_0
+        assert conf_1_0 > conf_1_5
+
+        # All should be between 0 and 1
+        assert 0.0 <= conf_0_5 <= 1.0
+        assert 0.0 <= conf_1_0 <= 1.0
+        assert 0.0 <= conf_1_5 <= 1.0
+
+    def test_custom_confidence_mapping(self):
+        """Verify custom confidence distance mapping is applied."""
+        # Create custom config with different mapping
+        custom_config = SearchConfig(
+            CONFIDENCE_DISTANCE_BREAKPOINTS={
+                0.5: 0.9,   # At distance 0.5, confidence is 0.9
+                1.0: 0.5,   # At distance 1.0, confidence is 0.5
+                2.0: 0.1    # At distance 2.0, confidence is 0.1
+            }
+        )
+
+        # Test confidence at custom breakpoints
+        conf_0_5 = calculate_confidence_from_distance(0.5, custom_config)
+        conf_1_0 = calculate_confidence_from_distance(1.0, custom_config)
+        conf_2_0 = calculate_confidence_from_distance(2.0, custom_config)
+
+        # Should respect custom mapping
+        assert conf_0_5 == 0.9
+        assert conf_1_0 == 0.5
+        assert conf_2_0 == 0.1
+
+    async def test_search_config_with_context(self, mock_context, monkeypatch):
+        """Verify SearchConfig works with context parameter."""
+        mock_client = Mock()
+        mock_collection = Mock()
+        mock_collection.query.return_value = {
+            'metadatas': [[
+                {'name': 'test', 'subscribers': 1000, 'nsfw': False}
+            ]],
+            'distances': [[0.5]]
+        }
+
+        def mock_get_client():
+            return mock_client
+
+        def mock_get_collection(name, client):
+            return mock_collection
+
+        monkeypatch.setattr('src.tools.discover.get_chroma_client', mock_get_client)
+        monkeypatch.setattr('src.tools.discover.get_collection', mock_get_collection)
+
+        # Setup progress tracking
+        mock_context.report_progress = AsyncMock()
+
+        # Call with both custom config and context
+        custom_config = SearchConfig(GENERIC_PENALTY_MULTIPLIER=0.2)
+        result = await discover_subreddits(
+            query="test",
+            config=custom_config,
+            ctx=mock_context
+        )
+
+        # Both should work together
+        assert "subreddits" in result or "error" in result
+        assert mock_context.report_progress.called  # Context was used

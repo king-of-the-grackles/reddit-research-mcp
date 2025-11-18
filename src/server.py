@@ -21,6 +21,13 @@ from src.tools.search import search_in_subreddit
 from src.tools.posts import fetch_subreddit_posts, fetch_multiple_subreddits
 from src.tools.comments import fetch_submission_with_comments
 from src.tools.discover import discover_subreddits
+from src.tools.watchlist import (
+    create_watchlist,
+    list_watchlists,
+    get_watchlist,
+    update_watchlist,
+    delete_watchlist,
+)
 from src.resources import register_resources
 
 # Configure Descope authentication
@@ -155,7 +162,12 @@ def discover_operations(ctx: Context) -> Dict[str, Any]:
             "search_subreddit": "Search for posts within a specific community",
             "fetch_posts": "Get posts from a single subreddit",
             "fetch_multiple": "Batch fetch from multiple subreddits (70% more efficient)",
-            "fetch_comments": "Get complete comment tree for deep analysis"
+            "fetch_comments": "Get complete comment tree for deep analysis",
+            "create_watchlist": "Create a new watchlist with analysis and subreddits",
+            "list_watchlists": "List all watchlists for the authenticated user",
+            "get_watchlist": "Get a specific watchlist by ID",
+            "update_watchlist": "Update an existing watchlist",
+            "delete_watchlist": "Delete a watchlist"
         },
         "recommended_workflows": {
             "comprehensive_research": [
@@ -165,6 +177,10 @@ def discover_operations(ctx: Context) -> Dict[str, Any]:
             "targeted_search": [
                 "discover_subreddits → search_subreddit → fetch_comments",
                 "Best for: Finding specific content in relevant communities"
+            ],
+            "watchlist_workflow": [
+                "discover_subreddits → create_watchlist → list_watchlists",
+                "Best for: Saving research results for later use"
             ]
         },
         "next_step": "Use get_operation_schema() to understand requirements"
@@ -187,38 +203,69 @@ def get_operation_schema(
     # Phase 1: Accept context but don't use it yet
     schemas = {
         "discover_subreddits": {
-            "description": "Find communities using semantic vector search",
+            "description": "Find communities using semantic vector search with configurable filtering and batch discovery",
             "parameters": {
                 "query": {
                     "type": "string",
-                    "required": True,
-                    "description": "Topic to find communities for",
+                    "required_one_of": ["query", "queries"],
+                    "description": "Single topic to find communities for",
                     "validation": "2-100 characters"
+                },
+                "queries": {
+                    "type": "array[string] or JSON string",
+                    "required_one_of": ["query", "queries"],
+                    "description": "Multiple topics for batch discovery (more efficient than individual queries)",
+                    "example": '["machine learning", "deep learning", "neural networks"]',
+                    "tip": "Batch mode reduces API calls and token usage by ~40%"
                 },
                 "limit": {
                     "type": "integer",
                     "required": False,
                     "default": 10,
                     "range": [1, 50],
-                    "description": "Number of communities to return"
+                    "description": "Number of communities to return per query"
                 },
                 "include_nsfw": {
                     "type": "boolean",
                     "required": False,
                     "default": False,
                     "description": "Whether to include NSFW communities"
+                },
+                "min_confidence": {
+                    "type": "float",
+                    "required": False,
+                    "default": 0.0,
+                    "range": [0.0, 1.0],
+                    "description": "Minimum confidence score threshold for results",
+                    "guidance": {
+                        "0.0-0.3": "Very inclusive, includes tangentially related communities",
+                        "0.3-0.6": "Balanced, moderate relevance requirements",
+                        "0.6-0.8": "Strict, only highly relevant communities",
+                        "0.8-1.0": "Very strict, only exact semantic matches"
+                    }
                 }
             },
             "returns": {
-                "subreddits": "Array with confidence scores (0-1)",
+                "subreddits": "Array with confidence scores (0-1) and match tiers",
+                "confidence_stats": "Distribution statistics (mean, median, min, max, std_dev)",
+                "tier_distribution": "Breakdown by match quality (exact, semantic, adjacent, peripheral)",
                 "quality_indicators": {
                     "good": "5+ subreddits with confidence > 0.7",
-                    "poor": "All results below 0.5 confidence"
+                    "moderate": "3-5 subreddits with confidence 0.5-0.7",
+                    "poor": "All results below 0.5 confidence - refine search terms"
                 }
             },
+            "notes": [
+                "Supports real-time progress reporting via context",
+                "Lower distances map to higher confidence scores",
+                "Generic subreddits (funny, pics, memes) are penalized unless directly searched",
+                "Batch mode returns results keyed by query for easy analysis"
+            ],
             "examples": [] if not include_examples else [
                 {"query": "machine learning", "limit": 15},
-                {"query": "python web development", "limit": 10}
+                {"query": "python web development", "limit": 10, "min_confidence": 0.6},
+                {"queries": ["machine learning", "deep learning", "neural networks"], "limit": 10},
+                {"queries": "[\"web framework\", \"api design\"]", "include_nsfw": False, "min_confidence": 0.5}
             ]
         },
         "search_subreddit": {
@@ -359,6 +406,146 @@ def get_operation_schema(
                 {"submission_id": "1abc234", "comment_limit": 100},
                 {"url": "https://reddit.com/r/Python/comments/xyz789/", "comment_limit": 50, "comment_sort": "top"}
             ]
+        },
+        "create_watchlist": {
+            "description": "Create a new watchlist with analysis and selected subreddits",
+            "parameters": {
+                "name": {
+                    "type": "string",
+                    "required": True,
+                    "description": "Name for the watchlist (1-255 chars)"
+                },
+                "website_url": {
+                    "type": "string",
+                    "required": False,
+                    "description": "URL of the website being analyzed (optional)"
+                },
+                "analysis": {
+                    "type": "object",
+                    "required": False,
+                    "description": "Watchlist analysis data (optional)",
+                    "properties": {
+                        "description": "Description of topic/product/interest (10-1000 chars)",
+                        "audience_personas": "Array of persona tags (1-10 items)",
+                        "keywords": "Array of relevant keywords (1-50 items)"
+                    }
+                },
+                "selected_subreddits": {
+                    "type": "array[object]",
+                    "required": True,
+                    "min_items": 1,
+                    "max_items": 50,
+                    "description": "List of selected subreddits",
+                    "item_properties": {
+                        "name": "Subreddit name (1-100 chars)",
+                        "description": "Subreddit description (max 1000 chars)",
+                        "subscribers": "Number of subscribers (integer >= 0)",
+                        "confidence_score": "Relevance score (0.0-1.0)"
+                    }
+                }
+            },
+            "examples": [] if not include_examples else [
+                {
+                    "name": "AI Research Watchlist",
+                    "website_url": "https://example.com",
+                    "analysis": {
+                        "description": "AI-powered data analysis platform for businesses",
+                        "audience_personas": ["data scientists", "business analysts", "ML engineers"],
+                        "keywords": ["machine learning", "data analysis", "business intelligence"]
+                    },
+                    "selected_subreddits": [
+                        {"name": "MachineLearning", "description": "ML community", "subscribers": 2500000, "confidence_score": 0.85},
+                        {"name": "datascience", "description": "Data science discussions", "subscribers": 1200000, "confidence_score": 0.78}
+                    ]
+                }
+            ]
+        },
+        "list_watchlists": {
+            "description": "List all watchlists for the authenticated user",
+            "parameters": {
+                "limit": {
+                    "type": "integer",
+                    "required": False,
+                    "default": 50,
+                    "range": [1, 100],
+                    "description": "Maximum number of watchlists to return"
+                },
+                "offset": {
+                    "type": "integer",
+                    "required": False,
+                    "default": 0,
+                    "description": "Number of watchlists to skip (for pagination)"
+                }
+            },
+            "examples": [] if not include_examples else [
+                {"limit": 10, "offset": 0},
+                {"limit": 25, "offset": 50}
+            ]
+        },
+        "get_watchlist": {
+            "description": "Get a specific watchlist by ID",
+            "parameters": {
+                "watchlist_id": {
+                    "type": "string",
+                    "required": True,
+                    "description": "UUID of the watchlist to retrieve"
+                }
+            },
+            "examples": [] if not include_examples else [
+                {"watchlist_id": "550e8400-e29b-41d4-a716-446655440000"}
+            ]
+        },
+        "update_watchlist": {
+            "description": "Update an existing watchlist (partial update - only include fields to change)",
+            "parameters": {
+                "watchlist_id": {
+                    "type": "string",
+                    "required": True,
+                    "description": "UUID of the watchlist to update"
+                },
+                "name": {
+                    "type": "string",
+                    "required": False,
+                    "description": "New name for the watchlist (1-255 chars)"
+                },
+                "website_url": {
+                    "type": "string",
+                    "required": False,
+                    "description": "Updated website URL"
+                },
+                "analysis": {
+                    "type": "object",
+                    "required": False,
+                    "description": "Updated watchlist analysis data"
+                },
+                "selected_subreddits": {
+                    "type": "array[object]",
+                    "required": False,
+                    "description": "Updated list of selected subreddits"
+                }
+            },
+            "examples": [] if not include_examples else [
+                {"watchlist_id": "550e8400-e29b-41d4-a716-446655440000", "name": "Updated Watchlist Name"},
+                {
+                    "watchlist_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "selected_subreddits": [
+                        {"name": "Python", "description": "Python programming", "subscribers": 1500000, "confidence_score": 0.9}
+                    ]
+                }
+            ]
+        },
+        "delete_watchlist": {
+            "description": "Delete a watchlist",
+            "parameters": {
+                "watchlist_id": {
+                    "type": "string",
+                    "required": True,
+                    "description": "UUID of the watchlist to delete"
+                }
+            },
+            "examples": [] if not include_examples else [
+                {"watchlist_id": "550e8400-e29b-41d4-a716-446655440000"}
+            ]
         }
     }
     
@@ -392,7 +579,12 @@ async def execute_operation(
         "search_subreddit": search_in_subreddit,
         "fetch_posts": fetch_subreddit_posts,
         "fetch_multiple": fetch_multiple_subreddits,
-        "fetch_comments": fetch_submission_with_comments
+        "fetch_comments": fetch_submission_with_comments,
+        "create_watchlist": create_watchlist,
+        "list_watchlists": list_watchlists,
+        "get_watchlist": get_watchlist,
+        "update_watchlist": update_watchlist,
+        "delete_watchlist": delete_watchlist
     }
 
     if operation_id not in operations:
@@ -410,7 +602,12 @@ async def execute_operation(
             params = {**parameters, "ctx": ctx}
 
         # Execute operation with await for async operations
-        if operation_id in ["discover_subreddits", "fetch_multiple", "fetch_comments"]:
+        async_operations = [
+            "discover_subreddits", "fetch_multiple", "fetch_comments",
+            "create_watchlist", "list_watchlists",
+            "get_watchlist", "update_watchlist", "delete_watchlist"
+        ]
+        if operation_id in async_operations:
             result = await operations[operation_id](**params)
         else:
             result = operations[operation_id](**params)

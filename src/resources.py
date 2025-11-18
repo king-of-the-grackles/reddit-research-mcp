@@ -121,6 +121,26 @@ def register_resources(mcp, reddit: praw.Reddit) -> None:
                     "fetch_multiple": "Batch fetch from multiple subreddits (70% more efficient)",
                     "fetch_comments": "Get complete comment tree for deep analysis"
                 },
+                "advanced_configuration": {
+                    "description": "Fine-tune search behavior with SearchConfig for power users",
+                    "searchconfig_parameters": {
+                        "min_confidence": "Filter results by confidence threshold (0.0-1.0). Higher values return only highly relevant communities",
+                        "EXACT_DISTANCE_THRESHOLD": "Distance threshold for 'exact' match tier (default: 0.2)",
+                        "SEMANTIC_DISTANCE_THRESHOLD": "Distance threshold for 'semantic' match tier (default: 0.35)",
+                        "GENERIC_PENALTY_MULTIPLIER": "Penalty applied to generic subreddits like 'funny', 'pics', 'memes' (default: 0.3)",
+                        "LARGE_SUB_THRESHOLD": "Subscriber count above which to apply boost (default: 1,000,000)",
+                        "LARGE_SUB_BOOST_MULTIPLIER": "Confidence boost for large subreddits (default: 1.1)",
+                        "CONFIDENCE_DISTANCE_BREAKPOINTS": "Custom distance-to-confidence mapping for advanced tuning"
+                    },
+                    "usage": "Import SearchConfig from src.tools for programmatic customization",
+                    "example": "custom_config = SearchConfig(GENERIC_PENALTY_MULTIPLIER=0.1, min_confidence=0.6)",
+                    "typical_use_cases": [
+                        "Stricter filtering: Increase min_confidence to 0.7+ for only highly relevant communities",
+                        "Broader search: Decrease GENERIC_PENALTY_MULTIPLIER to find more generic community overlaps",
+                        "Niche communities: Increase SMALL_SUB_PENALTY_MULTIPLIER to 1.0 to weight niche subs equally",
+                        "Semantic tuning: Adjust CONFIDENCE_DISTANCE_BREAKPOINTS for different distance distributions"
+                    ]
+                },
                 "resources": [
                     {
                         "uri": "reddit://server-info",

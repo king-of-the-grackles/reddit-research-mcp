@@ -1343,6 +1343,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "fastmcp" },
+    { name = "httpx" },
     { name = "openai-agents" },
     { name = "praw" },
     { name = "pydantic" },
@@ -1363,6 +1364,7 @@ dev = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.12.15" },
     { name = "fastmcp", specifier = ">=2.12.4" },
+    { name = "httpx", specifier = ">=0.27.0" },
     { name = "openai-agents", specifier = ">=0.2.8" },
     { name = "praw", specifier = ">=7.7.1" },
     { name = "pydantic", specifier = ">=2.0.0" },
