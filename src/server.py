@@ -573,6 +573,21 @@ async def execute_operation(
     """
     # Phase 1: Accept context but don't use it yet
 
+    # Normalize common parameter aliases
+    param_aliases = {"subreddit": "subreddit_name"}
+    for alias, canonical in param_aliases.items():
+        if alias in parameters and canonical not in parameters:
+            parameters[canonical] = parameters.pop(alias)
+
+    # Operation ID aliases (map function names to operation IDs)
+    operation_aliases = {
+        "search_in_subreddit": "search_subreddit",
+        "fetch_subreddit_posts": "fetch_posts",
+        "fetch_multiple_subreddits": "fetch_multiple",
+        "fetch_submission_with_comments": "fetch_comments",
+    }
+    operation_id = operation_aliases.get(operation_id, operation_id)
+
     # Operation mapping
     operations = {
         "discover_subreddits": discover_subreddits,

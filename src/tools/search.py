@@ -1,6 +1,12 @@
 from typing import Optional, Dict, Any, Literal
 import praw
-from prawcore import NotFound, Forbidden
+from prawcore import (
+    NotFound,
+    Forbidden,
+    TooManyRequests,
+    ServerError,
+    ResponseException,
+)
 from fastmcp import Context
 from ..models import SearchResult, RedditPost
 
@@ -50,13 +56,39 @@ def search_in_subreddit(
                 time_filter=time_filter,
                 limit=limit
             )
-        except NotFound:
+        except NotFound as e:
             return {
                 "error": f"Subreddit r/{clean_name} not found",
-                "suggestion": "discover_subreddits({'query': 'topic'})"
+                "status_code": 404,
+                "recovery": "Use discover_subreddits to find valid communities"
             }
-        except Forbidden:
-            return {"error": f"Access to r/{clean_name} forbidden (may be private)"}
+        except Forbidden as e:
+            return {
+                "error": f"Access to r/{clean_name} forbidden",
+                "status_code": 403,
+                "detail": e.response.text[:200] if hasattr(e, 'response') else None,
+                "recovery": "Subreddit may be private, quarantined, or banned"
+            }
+        except TooManyRequests as e:
+            return {
+                "error": "Rate limited by Reddit API",
+                "status_code": 429,
+                "retry_after_seconds": e.retry_after if hasattr(e, 'retry_after') else None,
+                "recovery": "Wait before retrying"
+            }
+        except ServerError as e:
+            return {
+                "error": "Reddit server error",
+                "status_code": e.response.status_code if hasattr(e, 'response') else 500,
+                "recovery": "Reddit is experiencing issues - retry after a short delay"
+            }
+        except ResponseException as e:
+            return {
+                "error": f"Reddit API error: {str(e)}",
+                "status_code": e.response.status_code if hasattr(e, 'response') else None,
+                "response_body": e.response.text[:300] if hasattr(e, 'response') else None,
+                "recovery": "Check subreddit name and retry"
+            }
         
         # Parse results
         results = []
@@ -80,5 +112,23 @@ def search_in_subreddit(
         
         return result.model_dump()
         
+    except TooManyRequests as e:
+        return {
+            "error": "Rate limited by Reddit API",
+            "status_code": 429,
+            "retry_after_seconds": e.retry_after if hasattr(e, 'retry_after') else None,
+            "recovery": "Wait before retrying"
+        }
+    except ResponseException as e:
+        return {
+            "error": f"Reddit API error: {str(e)}",
+            "status_code": e.response.status_code if hasattr(e, 'response') else None,
+            "response_body": e.response.text[:300] if hasattr(e, 'response') else None,
+            "recovery": "Check parameters and retry"
+        }
     except Exception as e:
-        return {"error": f"Search in subreddit failed: {str(e)}"}
+        return {
+            "error": f"Search in subreddit failed: {str(e)}",
+            "error_type": type(e).__name__,
+            "recovery": "Check parameters match schema from get_operation_schema"
+        }

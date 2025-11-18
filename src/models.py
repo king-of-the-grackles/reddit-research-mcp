@@ -82,7 +82,7 @@ class WatchlistCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     website_url: Optional[str] = None
     analysis: Optional[WatchlistAnalysis] = None
-    selected_subreddits: List[SubredditOption] = Field(..., min_length=1, max_length=50)
+    selected_subreddits: List[SubredditOption] = Field(..., min_length=1)
 
 
 class WatchlistUpdate(BaseModel):
@@ -90,7 +90,7 @@ class WatchlistUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     website_url: Optional[str] = None
     analysis: Optional[WatchlistAnalysis] = None
-    selected_subreddits: Optional[List[SubredditOption]] = Field(None, min_length=1, max_length=50)
+    selected_subreddits: Optional[List[SubredditOption]] = Field(None, min_length=1)
 
 
 class Watchlist(BaseModel):

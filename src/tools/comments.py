@@ -1,7 +1,13 @@
 from typing import Optional, Dict, Any, Literal, List
 import praw
 from praw.models import Submission, Comment as PrawComment, MoreComments
-from prawcore import NotFound, Forbidden
+from prawcore import (
+    NotFound,
+    Forbidden,
+    TooManyRequests,
+    ServerError,
+    ResponseException,
+)
 from fastmcp import Context
 from ..models import SubmissionWithCommentsResult, RedditPost, Comment
 
@@ -82,12 +88,45 @@ async def fetch_submission_with_comments(
             
             # Force fetch to check if submission exists
             _ = submission.title
-        except NotFound:
-            return {"error": "Submission not found"}
-        except Forbidden:
-            return {"error": "Access to submission forbidden"}
+        except NotFound as e:
+            return {
+                "error": "Submission not found",
+                "status_code": 404,
+                "recovery": "Verify the submission_id or url is correct"
+            }
+        except Forbidden as e:
+            return {
+                "error": "Access to submission forbidden",
+                "status_code": 403,
+                "detail": e.response.text[:200] if hasattr(e, 'response') else None,
+                "recovery": "Submission may be in a private or quarantined subreddit"
+            }
+        except TooManyRequests as e:
+            return {
+                "error": "Rate limited by Reddit API",
+                "status_code": 429,
+                "retry_after_seconds": e.retry_after if hasattr(e, 'retry_after') else None,
+                "recovery": "Wait before retrying"
+            }
+        except ServerError as e:
+            return {
+                "error": "Reddit server error",
+                "status_code": e.response.status_code if hasattr(e, 'response') else 500,
+                "recovery": "Reddit is experiencing issues - retry after a short delay"
+            }
+        except ResponseException as e:
+            return {
+                "error": f"Reddit API error: {str(e)}",
+                "status_code": e.response.status_code if hasattr(e, 'response') else None,
+                "response_body": e.response.text[:300] if hasattr(e, 'response') else None,
+                "recovery": "Check submission reference and retry"
+            }
         except Exception as e:
-            return {"error": f"Invalid submission reference: {str(e)}"}
+            return {
+                "error": f"Invalid submission reference: {str(e)}",
+                "error_type": type(e).__name__,
+                "recovery": "Provide either a valid submission_id or url"
+            }
         
         # Set comment sort
         submission.comment_sort = comment_sort
@@ -160,8 +199,26 @@ async def fetch_submission_with_comments(
         
         return result.model_dump()
         
+    except TooManyRequests as e:
+        return {
+            "error": "Rate limited by Reddit API",
+            "status_code": 429,
+            "retry_after_seconds": e.retry_after if hasattr(e, 'retry_after') else None,
+            "recovery": "Wait before retrying"
+        }
+    except ResponseException as e:
+        return {
+            "error": f"Reddit API error: {str(e)}",
+            "status_code": e.response.status_code if hasattr(e, 'response') else None,
+            "response_body": e.response.text[:300] if hasattr(e, 'response') else None,
+            "recovery": "Check parameters and retry"
+        }
     except Exception as e:
-        return {"error": f"Failed to fetch submission: {str(e)}"}
+        return {
+            "error": f"Failed to fetch submission: {str(e)}",
+            "error_type": type(e).__name__,
+            "recovery": "Check parameters match schema from get_operation_schema"
+        }
 
 
 def count_replies(comment: Comment) -> int:
