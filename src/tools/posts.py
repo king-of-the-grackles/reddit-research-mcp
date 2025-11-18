@@ -1,6 +1,13 @@
 from typing import Optional, Dict, Any, Literal, List
 import praw
-from prawcore import NotFound, Forbidden
+from prawcore import (
+    NotFound,
+    Forbidden,
+    TooManyRequests,
+    ServerError,
+    BadRequest,
+    ResponseException,
+)
 from fastmcp import Context
 from ..models import SubredditPostsResult, RedditPost, SubredditInfo
 
@@ -41,13 +48,40 @@ def fetch_subreddit_posts(
             subreddit = reddit.subreddit(clean_name)
             # Force fetch to check if subreddit exists
             _ = subreddit.display_name
-        except NotFound:
+        except NotFound as e:
             return {
                 "error": f"Subreddit r/{clean_name} not found",
-                "suggestion": "discover_subreddits({'query': 'topic'})"
+                "status_code": 404,
+                "recovery": "Use discover_subreddits to find valid communities"
             }
-        except Forbidden:
-            return {"error": f"Access to r/{clean_name} forbidden (may be private)"}
+        except Forbidden as e:
+            return {
+                "error": f"Access to r/{clean_name} forbidden",
+                "status_code": 403,
+                "detail": e.response.text[:200] if hasattr(e, 'response') else None,
+                "recovery": "Subreddit may be private, quarantined, or banned"
+            }
+        except TooManyRequests as e:
+            return {
+                "error": "Rate limited by Reddit API",
+                "status_code": 429,
+                "retry_after_seconds": e.retry_after if hasattr(e, 'retry_after') else None,
+                "message": e.message if hasattr(e, 'message') else str(e),
+                "recovery": f"Wait before retrying"
+            }
+        except ServerError as e:
+            return {
+                "error": "Reddit server error",
+                "status_code": e.response.status_code if hasattr(e, 'response') else 500,
+                "recovery": "Reddit is experiencing issues - retry after a short delay"
+            }
+        except ResponseException as e:
+            return {
+                "error": f"Reddit API error: {str(e)}",
+                "status_code": e.response.status_code if hasattr(e, 'response') else None,
+                "response_body": e.response.text[:300] if hasattr(e, 'response') else None,
+                "recovery": "Check subreddit name and retry"
+            }
         
         # Get posts based on listing type
         if listing_type == "hot":
@@ -95,8 +129,26 @@ def fetch_subreddit_posts(
         
         return result.model_dump()
         
+    except TooManyRequests as e:
+        return {
+            "error": "Rate limited by Reddit API",
+            "status_code": 429,
+            "retry_after_seconds": e.retry_after if hasattr(e, 'retry_after') else None,
+            "recovery": "Wait before retrying"
+        }
+    except ResponseException as e:
+        return {
+            "error": f"Reddit API error: {str(e)}",
+            "status_code": e.response.status_code if hasattr(e, 'response') else None,
+            "response_body": e.response.text[:300] if hasattr(e, 'response') else None,
+            "recovery": "Check parameters and retry"
+        }
     except Exception as e:
-        return {"error": f"Failed to fetch posts: {str(e)}"}
+        return {
+            "error": f"Failed to fetch posts: {str(e)}",
+            "error_type": type(e).__name__,
+            "recovery": "Check parameters match schema from get_operation_schema"
+        }
 
 
 async def fetch_multiple_subreddits(
@@ -183,18 +235,47 @@ async def fetch_multiple_subreddits(
                         "permalink": f"https://reddit.com{submission.permalink}"
                     })
             
+            found_names = list(posts_by_subreddit.keys())
+            missing_names = [name for name in clean_names
+                           if name.lower() not in [k.lower() for k in found_names]]
+
             return {
                 "subreddits_requested": clean_names,
-                "subreddits_found": list(posts_by_subreddit.keys()),
+                "subreddits_found": found_names,
+                "subreddits_failed": missing_names,
+                "failure_reasons": {
+                    name: "No posts returned (may be private, banned, empty, or misspelled)"
+                    for name in missing_names
+                } if missing_names else {},
                 "posts_by_subreddit": posts_by_subreddit,
-                "total_posts": sum(len(posts) for posts in posts_by_subreddit.values())
+                "total_posts": sum(len(posts) for posts in posts_by_subreddit.values()),
+                "success_rate": f"{len(found_names)}/{len(clean_names)}"
             }
-            
+
+        except TooManyRequests as e:
+            return {
+                "error": "Rate limited by Reddit API",
+                "status_code": 429,
+                "retry_after_seconds": e.retry_after if hasattr(e, 'retry_after') else None,
+                "recovery": "Wait before retrying"
+            }
+        except ResponseException as e:
+            return {
+                "error": f"Reddit API error: {str(e)}",
+                "status_code": e.response.status_code if hasattr(e, 'response') else None,
+                "response_body": e.response.text[:300] if hasattr(e, 'response') else None,
+                "recovery": "Check subreddit names and retry"
+            }
         except Exception as e:
             return {
                 "error": f"Failed to fetch from multiple subreddits: {str(e)}",
-                "suggestion": "discover_subreddits({'query': 'topic'}) to find valid names"
+                "error_type": type(e).__name__,
+                "recovery": "Use discover_subreddits to find valid community names"
             }
-        
+
     except Exception as e:
-        return {"error": f"Failed to process request: {str(e)}"}
+        return {
+            "error": f"Failed to process request: {str(e)}",
+            "error_type": type(e).__name__,
+            "recovery": "Check parameters match schema from get_operation_schema"
+        }

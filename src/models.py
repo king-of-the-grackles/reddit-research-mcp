@@ -58,3 +58,62 @@ class SubmissionWithCommentsResult(BaseModel):
 
 # Allow recursive Comment model
 Comment.model_rebuild()
+
+
+# Watchlist API Models
+
+class WatchlistAnalysis(BaseModel):
+    """Analysis data for watchlist."""
+    description: str = Field(..., min_length=10, max_length=1000)
+    audience_personas: List[str] = Field(..., min_length=1, max_length=10)
+    keywords: List[str] = Field(..., min_length=1, max_length=50)
+
+
+class SubredditOption(BaseModel):
+    """Subreddit option for watchlist."""
+    name: str = Field(..., min_length=1, max_length=100)
+    description: str = Field(..., max_length=1000)
+    subscribers: int = Field(..., ge=0)
+    confidence_score: float = Field(..., ge=0.0, le=1.0)
+
+
+class WatchlistCreate(BaseModel):
+    """Request model for creating a watchlist."""
+    name: str = Field(..., min_length=1, max_length=255)
+    website_url: Optional[str] = None
+    analysis: Optional[WatchlistAnalysis] = None
+    selected_subreddits: List[SubredditOption] = Field(..., min_length=1)
+
+
+class WatchlistUpdate(BaseModel):
+    """Request model for updating a watchlist (all fields optional)."""
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    website_url: Optional[str] = None
+    analysis: Optional[WatchlistAnalysis] = None
+    selected_subreddits: Optional[List[SubredditOption]] = Field(None, min_length=1)
+
+
+class Watchlist(BaseModel):
+    """Response model for a watchlist."""
+    id: str
+    user_id: str
+    name: str
+    website_url: Optional[str] = None
+    analysis: Optional[WatchlistAnalysis] = None
+    selected_subreddits: List[SubredditOption]
+    created_at: datetime
+    updated_at: datetime
+
+
+class WatchlistListResponse(BaseModel):
+    """Response model for listing watchlists."""
+    watchlists: List[Watchlist]
+    total: int
+    limit: int
+    offset: int
+
+
+class WatchlistDeleteResponse(BaseModel):
+    """Response model for deleting a watchlist."""
+    success: bool
+    message: str

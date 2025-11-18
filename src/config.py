@@ -1,7 +1,31 @@
 import praw
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
+
+
+def enable_praw_debug_logging(level: int = logging.DEBUG):
+    """
+    Enable verbose PRAW logging for debugging Reddit API interactions.
+
+    Args:
+        level: Logging level (default: logging.DEBUG)
+
+    Usage:
+        from config import enable_praw_debug_logging
+        enable_praw_debug_logging()  # Enable debug logging
+        enable_praw_debug_logging(logging.INFO)  # Less verbose
+    """
+    for logger_name in ['prawcore', 'praw']:
+        logger = logging.getLogger(logger_name)
+        logger.setLevel(level)
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            ))
+            logger.addHandler(handler)
 
 def get_reddit_client() -> praw.Reddit:
     """Get configured Reddit client (read-only) from environment."""

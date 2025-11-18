@@ -2,16 +2,71 @@
 
 import os
 import json
+import statistics
 from typing import Dict, List, Optional, Union, Any
+from dataclasses import dataclass
 from fastmcp import Context
 from ..chroma_client import get_chroma_client, get_collection
 
 
-def classify_match_tier(distance: float) -> str:
+@dataclass
+class SearchConfig:
+    """Centralized configuration for semantic search behavior.
+
+    All parameters are tunable to adjust search sensitivity and result filtering.
+    """
+
+    # Distance-to-tier thresholds (Euclidean distance)
+    EXACT_DISTANCE_THRESHOLD: float = 0.2      # Very relevant matches
+    SEMANTIC_DISTANCE_THRESHOLD: float = 0.35  # Relevant matches
+    ADJACENT_DISTANCE_THRESHOLD: float = 0.65  # Somewhat relevant
+
+    # Confidence score mapping (maps distance ranges to confidence 0.0-1.0)
+    # Lower distance = higher confidence
+    CONFIDENCE_DISTANCE_BREAKPOINTS: Dict[float, float] = None
+
+    # Generic subreddit filtering
+    GENERIC_SUBREDDITS: List[str] = None
+    GENERIC_PENALTY_MULTIPLIER: float = 0.3    # Penalty when generic sub matches broadly
+
+    # Subscriber-based scoring
+    LARGE_SUB_THRESHOLD: int = 1_000_000       # Boost applied above this
+    LARGE_SUB_BOOST_MULTIPLIER: float = 1.1    # Boost factor for large subs
+    SMALL_SUB_THRESHOLD: int = 10_000          # Penalty applied below this
+    SMALL_SUB_PENALTY_MULTIPLIER: float = 0.9  # Penalty factor for small subs
+
+    # Search behavior
+    SEARCH_MULTIPLIER: int = 3                 # Fetch 3x limit for filtering
+    MAX_SEARCH_RESULTS: int = 100              # Hard cap on returned results
+
+    def __post_init__(self):
+        """Initialize default values for mutable fields."""
+        if self.GENERIC_SUBREDDITS is None:
+            self.GENERIC_SUBREDDITS = [
+                'funny', 'pics', 'videos', 'gifs', 'memes', 'aww', 'news', 'science'
+            ]
+        if self.CONFIDENCE_DISTANCE_BREAKPOINTS is None:
+            # Maps distance thresholds to confidence ranges
+            # Distance range -> confidence range
+            self.CONFIDENCE_DISTANCE_BREAKPOINTS = {
+                0.8: 0.95,      # <0.8:  0.9-1.0
+                1.0: 0.80,      # 0.8-1.0: 0.7-0.9
+                1.2: 0.60,      # 1.0-1.2: 0.5-0.7
+                1.4: 0.40,      # 1.2-1.4: 0.3-0.5
+                2.0: 0.15       # 1.4-2.0: 0.1-0.3
+            }
+
+
+# Global default configuration
+DEFAULT_SEARCH_CONFIG = SearchConfig()
+
+
+def classify_match_tier(distance: float, config: SearchConfig = None) -> str:
     """
     Classify semantic match quality based on distance.
 
-    Distance scale (Euclidean):
+    Uses configurable thresholds to categorize match relevance.
+    Distance scale (Euclidean, lower is better):
     - 0.0-0.2: exact (highly relevant)
     - 0.2-0.35: semantic (very relevant)
     - 0.35-0.65: adjacent (somewhat relevant)
@@ -19,15 +74,19 @@ def classify_match_tier(distance: float) -> str:
 
     Args:
         distance: Euclidean distance from query embedding
+        config: SearchConfig instance with tunable thresholds
 
     Returns:
         Match tier label: "exact", "semantic", "adjacent", or "peripheral"
     """
-    if distance < 0.2:
+    if config is None:
+        config = DEFAULT_SEARCH_CONFIG
+
+    if distance < config.EXACT_DISTANCE_THRESHOLD:
         return "exact"
-    elif distance < 0.35:
+    elif distance < config.SEMANTIC_DISTANCE_THRESHOLD:
         return "semantic"
-    elif distance < 0.65:
+    elif distance < config.ADJACENT_DISTANCE_THRESHOLD:
         return "adjacent"
     else:
         return "peripheral"
@@ -36,6 +95,8 @@ def classify_match_tier(distance: float) -> str:
 def calculate_confidence_stats(confidence_scores: List[float]) -> Dict[str, float]:
     """
     Calculate statistics about confidence score distribution.
+
+    Provides insight into the quality and variance of matched results.
 
     Args:
         confidence_scores: List of confidence scores (0.0-1.0)
@@ -52,8 +113,6 @@ def calculate_confidence_stats(confidence_scores: List[float]) -> Dict[str, floa
             "std_dev": 0.0
         }
 
-    import statistics
-
     sorted_scores = sorted(confidence_scores)
     return {
         "mean": round(statistics.mean(confidence_scores), 3),
@@ -62,6 +121,78 @@ def calculate_confidence_stats(confidence_scores: List[float]) -> Dict[str, floa
         "max": round(max(confidence_scores), 3),
         "std_dev": round(statistics.stdev(confidence_scores), 3) if len(confidence_scores) > 1 else 0.0
     }
+
+
+def _get_vector_collection(collection_name: str = "dialog-app-prod-db"):
+    """
+    Initialize ChromaDB client and retrieve a collection.
+
+    Helper function to reduce code duplication across discovery operations.
+
+    Args:
+        collection_name: Name of the ChromaDB collection to retrieve
+
+    Returns:
+        ChromaDB collection object
+
+    Raises:
+        Exception: If connection or collection retrieval fails
+    """
+    client = get_chroma_client()
+    return get_collection(collection_name, client)
+
+
+def calculate_confidence_from_distance(distance: float, config: SearchConfig = None) -> float:
+    """
+    Convert Euclidean distance to confidence score (0.0-1.0).
+
+    Uses a piecewise linear interpolation model mapping distance ranges to
+    confidence bands. Lower distance = higher confidence.
+
+    Distance ranges map as follows:
+    - <0.8:   confidence 0.90-1.0   (excellent match)
+    - 0.8-1.0: confidence 0.70-0.9  (strong match)
+    - 1.0-1.2: confidence 0.50-0.7  (moderate match)
+    - 1.2-1.4: confidence 0.30-0.5  (weak match)
+    - 1.4-2.0: confidence 0.10-0.3  (very weak match)
+
+    Args:
+        distance: Euclidean distance from query embedding
+        config: SearchConfig with confidence mapping parameters
+
+    Returns:
+        Confidence score between 0.0 and 1.0
+
+    Example:
+        >>> calculate_confidence_from_distance(0.5)
+        0.937  # Very high confidence for close match
+        >>> calculate_confidence_from_distance(1.2)
+        0.6    # Moderate confidence
+    """
+    if config is None:
+        config = DEFAULT_SEARCH_CONFIG
+
+    breakpoints = sorted(config.CONFIDENCE_DISTANCE_BREAKPOINTS.items())
+
+    # Find which bracket the distance falls into
+    for i, (threshold, confidence_at_threshold) in enumerate(breakpoints):
+        if distance <= threshold:
+            if i == 0:
+                # Before first breakpoint: linearly interpolate from 1.0 to confidence_at_threshold
+                prior_threshold = 0.0
+                prior_confidence = 1.0
+            else:
+                prior_threshold, prior_confidence = breakpoints[i - 1]
+
+            # Linear interpolation between prior and current threshold
+            if threshold == prior_threshold:
+                return confidence_at_threshold
+            interpolation = (distance - prior_threshold) / (threshold - prior_threshold)
+            confidence = prior_confidence - (prior_confidence - confidence_at_threshold) * interpolation
+            return round(max(0.0, min(1.0, confidence)), 3)
+
+    # Beyond last breakpoint, return minimum confidence
+    return 0.1
 
 
 def calculate_tier_distribution(results: List[Dict[str, Any]]) -> Dict[str, int]:
@@ -90,6 +221,7 @@ async def discover_subreddits(
     limit: int = 10,
     include_nsfw: bool = False,
     min_confidence: float = 0.0,
+    config: Optional[SearchConfig] = None,
     ctx: Context = None
 ) -> Dict[str, Any]:
     """
@@ -105,18 +237,19 @@ async def discover_subreddits(
         limit: Maximum number of results per query (default 10)
         include_nsfw: Whether to include NSFW subreddits (default False)
         min_confidence: Minimum confidence score to include (0.0-1.0, default 0.0)
+        config: SearchConfig instance for tuning behavior (uses defaults if None)
         ctx: FastMCP context (auto-injected by decorator)
 
     Returns:
         Dictionary with discovered subreddits and their metadata
     """
-    # Phase 1: Accept context but don't use it yet
+    if config is None:
+        config = DEFAULT_SEARCH_CONFIG
 
     # Initialize ChromaDB client
     try:
-        client = get_chroma_client()
-        collection = get_collection("dialog-app-prod-db", client)
-        
+        collection = _get_vector_collection("dialog-app-prod-db")
+
     except Exception as e:
         return {
             "error": f"Failed to connect to vector database: {str(e)}",
@@ -145,14 +278,14 @@ async def discover_subreddits(
         
         batch_results = {}
         total_api_calls = 0
-        
+
         for search_query in queries:
             result = await _search_vector_db(
-                search_query, collection, limit, include_nsfw, min_confidence, ctx
+                search_query, collection, limit, include_nsfw, min_confidence, config, ctx
             )
             batch_results[search_query] = result
             total_api_calls += 1
-        
+
         return {
             "batch_mode": True,
             "total_queries": len(queries),
@@ -160,10 +293,10 @@ async def discover_subreddits(
             "results": batch_results,
             "tip": "Batch mode reduces API calls. Use the exact 'name' field when calling other tools."
         }
-    
+
     # Handle single query
     elif query:
-        return await _search_vector_db(query, collection, limit, include_nsfw, min_confidence, ctx)
+        return await _search_vector_db(query, collection, limit, include_nsfw, min_confidence, config, ctx)
     
     else:
         return {
@@ -183,14 +316,30 @@ async def _search_vector_db(
     limit: int,
     include_nsfw: bool,
     min_confidence: float,
+    config: SearchConfig = None,
     ctx: Context = None
 ) -> Dict[str, Any]:
-    """Internal function to perform semantic search for a single query."""
-    # Phase 1: Accept context but don't use it yet
+    """
+    Internal function to perform semantic search for a single query.
+
+    Args:
+        query: Search query string
+        collection: ChromaDB collection object
+        limit: Max results to return
+        include_nsfw: Whether to include NSFW subreddits
+        min_confidence: Minimum confidence threshold
+        config: SearchConfig with tunable parameters
+        ctx: FastMCP context for progress reporting
+
+    Returns:
+        Dictionary with search results and statistics
+    """
+    if config is None:
+        config = DEFAULT_SEARCH_CONFIG
 
     try:
         # Search with a larger limit to allow for filtering
-        search_limit = min(limit * 3, 100)  # Get extra results for filtering
+        search_limit = min(limit * config.SEARCH_MULTIPLIER, config.MAX_SEARCH_RESULTS)
         
         # Perform semantic search
         results = collection.query(
@@ -232,32 +381,20 @@ async def _search_vector_db(
                 nsfw_filtered += 1
                 continue
             
-            # Convert distance to confidence score (lower distance = higher confidence)
-            # Adjust the scaling based on observed distances (typically 0.8 to 1.6)
-            # Map distances: 0.8 -> 0.9, 1.0 -> 0.7, 1.2 -> 0.5, 1.4 -> 0.3, 1.6+ -> 0.1
-            if distance < 0.8:
-                confidence = 0.9 + (0.1 * (0.8 - distance) / 0.8)  # 0.9 to 1.0
-            elif distance < 1.0:
-                confidence = 0.7 + (0.2 * (1.0 - distance) / 0.2)  # 0.7 to 0.9
-            elif distance < 1.2:
-                confidence = 0.5 + (0.2 * (1.2 - distance) / 0.2)  # 0.5 to 0.7
-            elif distance < 1.4:
-                confidence = 0.3 + (0.2 * (1.4 - distance) / 0.2)  # 0.3 to 0.5
-            else:
-                confidence = max(0.1, 0.3 * (2.0 - distance) / 0.6)  # 0.1 to 0.3
-            
-            # Apply penalties for generic subreddits
+            # Convert distance to confidence score using configurable model
+            confidence = calculate_confidence_from_distance(distance, config)
+
+            # Apply penalties for generic subreddits (configurable)
             subreddit_name = metadata.get('name', '').lower()
-            generic_subs = ['funny', 'pics', 'videos', 'gifs', 'memes', 'aww']
-            if subreddit_name in generic_subs and query.lower() not in subreddit_name:
-                confidence *= 0.3  # Heavy penalty for generic subs unless directly searched
-            
-            # Boost for high-activity subreddits (optional)
+            if subreddit_name in config.GENERIC_SUBREDDITS and query.lower() not in subreddit_name:
+                confidence *= config.GENERIC_PENALTY_MULTIPLIER
+
+            # Apply boosts/penalties based on subscriber count
             subscribers = metadata.get('subscribers', 0)
-            if subscribers > 1000000:
-                confidence = min(1.0, confidence * 1.1)  # Small boost for very large subs
-            elif subscribers < 10000:
-                confidence *= 0.9  # Small penalty for tiny subs
+            if subscribers > config.LARGE_SUB_THRESHOLD:
+                confidence = min(1.0, confidence * config.LARGE_SUB_BOOST_MULTIPLIER)
+            elif subscribers < config.SMALL_SUB_THRESHOLD:
+                confidence *= config.SMALL_SUB_PENALTY_MULTIPLIER
             
             # Determine match type based on distance
             if distance < 0.3:
@@ -269,8 +406,8 @@ async def _search_vector_db(
             else:
                 match_type = "weak_match"
 
-            # Classify match tier for Phase 2a.2
-            match_tier = classify_match_tier(distance)
+            # Classify match tier based on distance
+            match_tier = classify_match_tier(distance, config)
 
             processed_results.append({
                 "name": metadata.get('name', 'unknown'),
@@ -364,15 +501,12 @@ def validate_subreddit(
     Returns:
         Dictionary with validation result and subreddit info if found
     """
-    # Phase 1: Accept context but don't use it yet
-
     # Clean the subreddit name
     clean_name = subreddit_name.replace("r/", "").replace("/r/", "").strip()
 
     try:
         # Search for exact match in vector database
-        client = get_chroma_client()
-        collection = get_collection("dialog-app-prod-db", client)
+        collection = _get_vector_collection("dialog-app-prod-db")
         
         # Search for the exact subreddit name
         results = collection.query(
