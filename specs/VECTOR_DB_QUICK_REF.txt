@@ -1,0 +1,220 @@
+================================================================================
+                    REDDIT MCP - VECTOR DB QUICK REFERENCE
+================================================================================
+
+ARCHITECTURE FLOW:
+─────────────────────────────────────────────────────────────────────────────
+Query (user)
+  └─> discover_subreddits() [src/tools/discover.py:10]
+       └─> _search_vector_db() [src/tools/discover.py:101]
+            └─> get_chroma_client() [src/chroma_client.py:89]
+                 └─> ChromaProxyClient.query() [HTTP POST to Render]
+                      └─> ChromaDB Cloud [Vector search]
+                           └─> Returns: {metadatas, distances}
+                 └─> Process results (filter, score, sort)
+                      └─> Return to user
+
+PARAMETERS:
+─────────────────────────────────────────────────────────────────────────────
+Function: discover_subreddits(query, queries, limit, include_nsfw, ctx)
+
+query              string        None          Single search term
+queries            list|string   None          Multiple queries [preferred]
+limit              integer       10            Results per query (1-50)
+include_nsfw       boolean       False         Include adult content
+ctx                Context       None          Progress reporting
+
+RESPONSE STRUCTURE:
+─────────────────────────────────────────────────────────────────────────────
+{
+  "query": "machine learning",
+  "subreddits": [
+    {
+      "name": "MachineLearning",
+      "subscribers": 1500000,
+      "confidence": 0.95,              ← Distance→Confidence (heuristic)
+      "url": "https://reddit.com/r/MachineLearning"
+    },
+    ... more results ...
+  ],
+  "summary": {
+    "total_found": 142,                ← Total matches before limit
+    "returned": 10,                    ← Results shown
+    "has_more": true                   ← More available
+  },
+  "next_actions": [...]
+}
+
+CONFIDENCE CALCULATION:
+─────────────────────────────────────────────────────────────────────────────
+Step 1: Distance → Base Confidence (Piecewise Linear)
+  distance < 0.8   →  confidence 0.9-1.0
+  0.8-1.0          →  confidence 0.7-0.9
+  1.0-1.2          →  confidence 0.5-0.7
+  1.2-1.4          →  confidence 0.3-0.5
+  >= 1.4           →  confidence 0.1-0.3
+
+Step 2: Apply Business Rules
+  IF generic_sub(funny, pics, gifs, etc) AND not_directly_searched:
+    confidence *= 0.3                  (Heavy penalty)
+  IF subscribers > 1_000_000:
+    confidence *= 1.1 (capped at 1.0)  (Small boost)
+  IF subscribers < 10_000:
+    confidence *= 0.9                  (Small penalty)
+
+FILE LOCATIONS:
+─────────────────────────────────────────────────────────────────────────────
+src/chroma_client.py         164 lines  Vector DB proxy client
+  └─ ChromaProxyClient       16-84      HTTP client
+  └─ ProxyCollection         72-83      Collection wrapper
+  └─ get_chroma_client()     89-104     Singleton initialization
+  └─ get_collection()        113-130    Collection access
+  └─ test_connection()       133-164    Connection test
+
+src/tools/discover.py        310 lines  Discovery operations
+  └─ discover_subreddits()   10-98      Entry point (async)
+  └─ _search_vector_db()     101-248    Search implementation (async)
+  └─ validate_subreddit()    251-310    Exact match checker
+
+src/server.py                607 lines  MCP server
+  └─ discover_operations()   142-171    Layer 1: See operations
+  └─ get_operation_schema()  174-372    Layer 2: Get parameters
+  └─ execute_operation()     378-428    Layer 3: Execute
+
+CURRENT CAPABILITIES:
+─────────────────────────────────────────────────────────────────────────────
+EXPOSED:
+  ✓ Semantic search (via distance)
+  ✓ Top-K retrieval (1-100)
+  ✓ Confidence scores (0.0-1.0)
+  ✓ Batch queries
+  ✓ NSFW filtering
+  ✓ Progress reporting (ctx)
+  ✓ Subscriber count
+  ✓ Subreddit names/URLs
+
+NOT EXPOSED:
+  ✗ Raw distance scores
+  ✗ Match type tiers
+  ✗ Metadata filters (WHERE)
+  ✗ Embedding vectors
+  ✗ Search timing
+  ✗ Collection statistics
+  ✗ Filter counts
+
+NEXT FEATURES (Phase 2):
+─────────────────────────────────────────────────────────────────────────────
+PHASE 2A (Quick, 1-2h each):
+  1. Expose raw distance scores
+  2. Add match_tier labels (exact/strong/partial/weak)
+  3. Include nsfw_filtered count
+  4. Add confidence statistics (mean/median)
+
+PHASE 2B (Medium, 3-4h each):
+  5. Add min_confidence filter parameter
+  6. Add subscriber range filters
+  7. Add diversity modes (focused/balanced/diverse)
+
+PHASE 2C (Advanced, 6+h each):
+  8. Similar subreddits (vector similarity)
+  9. Batch query overlap analysis
+  10. Collection coverage introspection
+
+ENVIRONMENT VARIABLES:
+─────────────────────────────────────────────────────────────────────────────
+REQUIRED:
+  REDDIT_CLIENT_ID=<your-app-id>
+  REDDIT_CLIENT_SECRET=<your-app-secret>
+
+OPTIONAL (defaults provided):
+  CHROMA_PROXY_URL=https://reddit-mcp-vector-db.onrender.com
+  CHROMA_PROXY_API_KEY=<your-api-key>
+  REDDIT_USER_AGENT=RedditMCP/1.0
+
+VECTOR DB COLLECTION SCHEMA:
+─────────────────────────────────────────────────────────────────────────────
+Collection Name: reddit_subreddits
+Index Size: ~20,000 subreddits
+Embedding Type: Multi-field (name, description, purpose, activity)
+Vector Metric: Euclidean distance
+Metadata Fields:
+  - name (str)          Subreddit name
+  - subscribers (int)   Subscriber count
+  - nsfw (bool)         Is adult content
+  - url (str)           Reddit URL
+  - description (?)     Community description (inferred)
+  - active (?)          Active status (inferred)
+
+DISTANCE RANGES OBSERVED:
+  0.0-0.8   Excellent matches
+  0.8-1.0   Very good matches
+  1.0-1.2   Good matches
+  1.2-1.4   Fair matches
+  1.4-1.6   Weak matches
+  1.6+      Very weak matches
+
+PERFORMANCE CHARACTERISTICS:
+─────────────────────────────────────────────────────────────────────────────
+Typical Response Time: <2 seconds
+  - Network latency: ~1s
+  - ChromaDB search: <100ms
+  - Confidence calculation: <50ms
+  - Sorting: <10ms
+
+Scaling Limits:
+  - Max results per query: 100
+  - Max batch queries: ~10-20 (untested)
+  - Concurrent requests: Depends on proxy (Render free: ~10)
+
+Bottlenecks:
+  - Network latency (primary)
+  - ChromaDB I/O (secondary)
+  - Confidence calculation (negligible)
+
+ERROR HANDLING:
+─────────────────────────────────────────────────────────────────────────────
+HTTP 401 → "API key required"
+HTTP 403 → "Invalid API key"
+HTTP 429 → "Rate limit exceeded"
+Other    → "Failed to query: {error}"
+
+Pattern matching for guidance:
+  "not found"  → "Verify subreddit name spelling"
+  "rate"       → "Rate limited - wait 60 seconds"
+  "timeout"    → "Reduce limit parameter to 10"
+  else         → "Try simpler search terms"
+
+TESTING REQUIREMENTS:
+─────────────────────────────────────────────────────────────────────────────
+Unit Tests:
+  □ Distance→Confidence (all 5 piecewise ranges)
+  □ Generic subreddit penalty (×0.3)
+  □ Subscriber boosts/penalties
+  □ NSFW filtering
+
+Integration Tests:
+  □ Single query end-to-end
+  □ Batch query execution
+  □ Error recovery & guidance
+  □ Exact match validation
+
+MAKING CHANGES:
+─────────────────────────────────────────────────────────────────────────────
+1. Modify discover_subreddits() signature [discover.py:10]
+2. Update get_operation_schema() [server.py:189-223]
+3. Update _search_vector_db() logic [discover.py:101-248]
+4. Add tests for new behavior
+5. Update docstrings
+
+DOCUMENTED RESOURCES:
+─────────────────────────────────────────────────────────────────────────────
+VECTOR_DB_ANALYSIS.md       21 detailed sections (this directory)
+VECTOR_DB_SUMMARY.md        Quick reference guide (this directory)
+specs/chroma-proxy-architecture.md   Proxy design
+specs/agentic-discovery-architecture.md   Future agent patterns
+
+================================================================================
+                              KEY TAKEAWAY:
+  Two files contain all vector DB logic (chroma_client.py + discover.py).
+  Clean architecture enables incremental improvements with low risk.
+================================================================================
