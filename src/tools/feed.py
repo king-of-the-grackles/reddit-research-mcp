@@ -1,6 +1,6 @@
-"""Watchlist API operations for MCP server.
+"""Feed API operations for MCP server.
 
-Provides CRUD operations for watchlists via the frontend API,
+Provides CRUD operations for feeds via the frontend API,
 forwarding the user's Descope authentication token.
 """
 
@@ -13,7 +13,7 @@ from fastmcp.server.dependencies import get_http_headers
 
 # API configuration
 def get_api_base_url() -> str:
-    """Get the Watchlist API base URL from environment."""
+    """Get the Feed API base URL from environment."""
     return os.getenv("AUDIENCE_API_URL", "http://localhost:3001/api")
 
 
@@ -27,7 +27,7 @@ def get_auth_headers() -> Dict[str, str]:
     }
 
 
-async def create_watchlist(
+async def create_feed(
     name: str,
     selected_subreddits: list,
     website_url: Optional[str] = None,
@@ -35,17 +35,17 @@ async def create_watchlist(
     ctx: Context = None
 ) -> Dict[str, Any]:
     """
-    Create a new watchlist.
+    Create a new feed.
 
     Args:
-        name: Name for the watchlist (1-255 chars)
+        name: Name for the feed (1-255 chars)
         selected_subreddits: List of subreddit options with name, description, subscribers, confidence_score
         website_url: URL of the website being analyzed (optional)
-        analysis: Watchlist analysis with description, audience_personas, keywords (optional)
+        analysis: Feed analysis with description, audience_personas, keywords (optional)
         ctx: FastMCP context (optional)
 
     Returns:
-        Created watchlist with id, timestamps, etc.
+        Created feed with id, timestamps, etc.
     """
     base_url = get_api_base_url()
     auth_headers = get_auth_headers()
@@ -63,7 +63,7 @@ async def create_watchlist(
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.post(
-                f"{base_url}/watchlist",
+                f"{base_url}/feeds",
                 json=payload,
                 headers=auth_headers
             )
@@ -100,21 +100,21 @@ async def create_watchlist(
             }
 
 
-async def list_watchlists(
+async def list_feeds(
     limit: int = 50,
     offset: int = 0,
     ctx: Context = None
 ) -> Dict[str, Any]:
     """
-    List all watchlists for the authenticated user.
+    List all feeds for the authenticated user.
 
     Args:
-        limit: Maximum number of watchlists to return (1-100, default 50)
-        offset: Number of watchlists to skip (default 0)
+        limit: Maximum number of feeds to return (1-100, default 50)
+        offset: Number of feeds to skip (default 0)
         ctx: FastMCP context (optional)
 
     Returns:
-        List of watchlists with pagination metadata
+        List of feeds with pagination metadata
     """
     base_url = get_api_base_url()
     auth_headers = get_auth_headers()
@@ -127,7 +127,7 @@ async def list_watchlists(
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.get(
-                f"{base_url}/watchlist",
+                f"{base_url}/feeds",
                 params=params,
                 headers=auth_headers
             )
@@ -157,19 +157,19 @@ async def list_watchlists(
             }
 
 
-async def get_watchlist(
-    watchlist_id: str,
+async def get_feed(
+    feed_id: str,
     ctx: Context = None
 ) -> Dict[str, Any]:
     """
-    Get a specific watchlist by ID.
+    Get a specific feed by ID.
 
     Args:
-        watchlist_id: UUID of the watchlist to retrieve
+        feed_id: UUID of the feed to retrieve
         ctx: FastMCP context (optional)
 
     Returns:
-        The watchlist data
+        The feed data
     """
     base_url = get_api_base_url()
     auth_headers = get_auth_headers()
@@ -177,7 +177,7 @@ async def get_watchlist(
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.get(
-                f"{base_url}/watchlist/{watchlist_id}",
+                f"{base_url}/feeds/{feed_id}",
                 headers=auth_headers
             )
 
@@ -190,8 +190,8 @@ async def get_watchlist(
                 }
             elif response.status_code == 404:
                 return {
-                    "error": f"Watchlist not found: {watchlist_id}",
-                    "suggestion": "Use list_watchlists to see available watchlists"
+                    "error": f"Feed not found: {feed_id}",
+                    "suggestion": "Use list_feeds to see available feeds"
                 }
             else:
                 return {
@@ -211,8 +211,8 @@ async def get_watchlist(
             }
 
 
-async def update_watchlist(
-    watchlist_id: str,
+async def update_feed(
+    feed_id: str,
     name: Optional[str] = None,
     website_url: Optional[str] = None,
     analysis: Optional[Dict[str, Any]] = None,
@@ -220,18 +220,18 @@ async def update_watchlist(
     ctx: Context = None
 ) -> Dict[str, Any]:
     """
-    Update an existing watchlist (partial update).
+    Update an existing feed (partial update).
 
     Args:
-        watchlist_id: UUID of the watchlist to update
-        name: New name for the watchlist (optional)
+        feed_id: UUID of the feed to update
+        name: New name for the feed (optional)
         website_url: Updated website URL (optional)
-        analysis: Updated watchlist analysis (optional)
+        analysis: Updated feed analysis (optional)
         selected_subreddits: Updated list of subreddits (optional)
         ctx: FastMCP context (optional)
 
     Returns:
-        The updated watchlist data
+        The updated feed data
     """
     base_url = get_api_base_url()
     auth_headers = get_auth_headers()
@@ -256,7 +256,7 @@ async def update_watchlist(
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.put(
-                f"{base_url}/watchlist/{watchlist_id}",
+                f"{base_url}/feeds/{feed_id}",
                 json=payload,
                 headers=auth_headers
             )
@@ -270,8 +270,8 @@ async def update_watchlist(
                 }
             elif response.status_code == 404:
                 return {
-                    "error": f"Watchlist not found: {watchlist_id}",
-                    "suggestion": "Use list_watchlists to see available watchlists"
+                    "error": f"Feed not found: {feed_id}",
+                    "suggestion": "Use list_feeds to see available feeds"
                 }
             elif response.status_code == 422:
                 error_data = response.json()
@@ -298,15 +298,15 @@ async def update_watchlist(
             }
 
 
-async def delete_watchlist(
-    watchlist_id: str,
+async def delete_feed(
+    feed_id: str,
     ctx: Context = None
 ) -> Dict[str, Any]:
     """
-    Delete a watchlist.
+    Delete a feed.
 
     Args:
-        watchlist_id: UUID of the watchlist to delete
+        feed_id: UUID of the feed to delete
         ctx: FastMCP context (optional)
 
     Returns:
@@ -318,7 +318,7 @@ async def delete_watchlist(
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.delete(
-                f"{base_url}/watchlist/{watchlist_id}",
+                f"{base_url}/feeds/{feed_id}",
                 headers=auth_headers
             )
 
@@ -331,8 +331,8 @@ async def delete_watchlist(
                 }
             elif response.status_code == 404:
                 return {
-                    "error": f"Watchlist not found: {watchlist_id}",
-                    "suggestion": "Use list_watchlists to see available watchlists"
+                    "error": f"Feed not found: {feed_id}",
+                    "suggestion": "Use list_feeds to see available feeds"
                 }
             else:
                 return {

@@ -12,12 +12,12 @@ from .discover import (
     classify_match_tier,
 )
 
-from .watchlist import (
-    create_watchlist,
-    list_watchlists,
-    get_watchlist,
-    update_watchlist,
-    delete_watchlist,
+from .feed import (
+    create_feed,
+    list_feeds,
+    get_feed,
+    update_feed,
+    delete_feed,
 )
 
 __all__ = [
@@ -28,10 +28,10 @@ __all__ = [
     "DEFAULT_SEARCH_CONFIG",
     "calculate_confidence_from_distance",
     "classify_match_tier",
-    # Watchlists
-    "create_watchlist",
-    "list_watchlists",
-    "get_watchlist",
-    "update_watchlist",
-    "delete_watchlist",
+    # Feeds
+    "create_feed",
+    "list_feeds",
+    "get_feed",
+    "update_feed",
+    "delete_feed",
 ]

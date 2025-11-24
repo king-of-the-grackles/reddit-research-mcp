@@ -21,12 +21,12 @@ from src.tools.search import search_in_subreddit
 from src.tools.posts import fetch_subreddit_posts, fetch_multiple_subreddits
 from src.tools.comments import fetch_submission_with_comments
 from src.tools.discover import discover_subreddits
-from src.tools.watchlist import (
-    create_watchlist,
-    list_watchlists,
-    get_watchlist,
-    update_watchlist,
-    delete_watchlist,
+from src.tools.feed import (
+    create_feed,
+    list_feeds,
+    get_feed,
+    update_feed,
+    delete_feed,
 )
 from src.resources import register_resources
 
@@ -163,11 +163,11 @@ def discover_operations(ctx: Context) -> Dict[str, Any]:
             "fetch_posts": "Get posts from a single subreddit",
             "fetch_multiple": "Batch fetch from multiple subreddits (70% more efficient)",
             "fetch_comments": "Get complete comment tree for deep analysis",
-            "create_watchlist": "Create a new watchlist with analysis and subreddits",
-            "list_watchlists": "List all watchlists for the authenticated user",
-            "get_watchlist": "Get a specific watchlist by ID",
-            "update_watchlist": "Update an existing watchlist",
-            "delete_watchlist": "Delete a watchlist"
+            "create_feed": "Create a new feed with analysis and subreddits",
+            "list_feeds": "List all feeds for the authenticated user",
+            "get_feed": "Get a specific feed by ID",
+            "update_feed": "Update an existing feed",
+            "delete_feed": "Delete a feed"
         },
         "recommended_workflows": {
             "comprehensive_research": [
@@ -178,8 +178,8 @@ def discover_operations(ctx: Context) -> Dict[str, Any]:
                 "discover_subreddits → search_subreddit → fetch_comments",
                 "Best for: Finding specific content in relevant communities"
             ],
-            "watchlist_workflow": [
-                "discover_subreddits → create_watchlist → list_watchlists",
+            "feed_workflow": [
+                "discover_subreddits → create_feed → list_feeds",
                 "Best for: Saving research results for later use"
             ]
         },
@@ -407,13 +407,13 @@ def get_operation_schema(
                 {"url": "https://reddit.com/r/Python/comments/xyz789/", "comment_limit": 50, "comment_sort": "top"}
             ]
         },
-        "create_watchlist": {
-            "description": "Create a new watchlist with analysis and selected subreddits",
+        "create_feed": {
+            "description": "Create a new feed with analysis and selected subreddits",
             "parameters": {
                 "name": {
                     "type": "string",
                     "required": True,
-                    "description": "Name for the watchlist (1-255 chars)"
+                    "description": "Name for the feed (1-255 chars)"
                 },
                 "website_url": {
                     "type": "string",
@@ -423,7 +423,7 @@ def get_operation_schema(
                 "analysis": {
                     "type": "object",
                     "required": False,
-                    "description": "Watchlist analysis data (optional)",
+                    "description": "Feed analysis data (optional)",
                     "properties": {
                         "description": "Description of topic/product/interest (10-1000 chars)",
                         "audience_personas": "Array of persona tags (1-10 items)",
@@ -446,7 +446,7 @@ def get_operation_schema(
             },
             "examples": [] if not include_examples else [
                 {
-                    "name": "AI Research Watchlist",
+                    "name": "AI Research Feed",
                     "website_url": "https://example.com",
                     "analysis": {
                         "description": "AI-powered data analysis platform for businesses",
@@ -460,21 +460,21 @@ def get_operation_schema(
                 }
             ]
         },
-        "list_watchlists": {
-            "description": "List all watchlists for the authenticated user",
+        "list_feeds": {
+            "description": "List all feeds for the authenticated user",
             "parameters": {
                 "limit": {
                     "type": "integer",
                     "required": False,
                     "default": 50,
                     "range": [1, 100],
-                    "description": "Maximum number of watchlists to return"
+                    "description": "Maximum number of feeds to return"
                 },
                 "offset": {
                     "type": "integer",
                     "required": False,
                     "default": 0,
-                    "description": "Number of watchlists to skip (for pagination)"
+                    "description": "Number of feeds to skip (for pagination)"
                 }
             },
             "examples": [] if not include_examples else [
@@ -482,31 +482,31 @@ def get_operation_schema(
                 {"limit": 25, "offset": 50}
             ]
         },
-        "get_watchlist": {
-            "description": "Get a specific watchlist by ID",
+        "get_feed": {
+            "description": "Get a specific feed by ID",
             "parameters": {
-                "watchlist_id": {
+                "feed_id": {
                     "type": "string",
                     "required": True,
-                    "description": "UUID of the watchlist to retrieve"
+                    "description": "UUID of the feed to retrieve"
                 }
             },
             "examples": [] if not include_examples else [
-                {"watchlist_id": "550e8400-e29b-41d4-a716-446655440000"}
+                {"feed_id": "550e8400-e29b-41d4-a716-446655440000"}
             ]
         },
-        "update_watchlist": {
-            "description": "Update an existing watchlist (partial update - only include fields to change)",
+        "update_feed": {
+            "description": "Update an existing feed (partial update - only include fields to change)",
             "parameters": {
-                "watchlist_id": {
+                "feed_id": {
                     "type": "string",
                     "required": True,
-                    "description": "UUID of the watchlist to update"
+                    "description": "UUID of the feed to update"
                 },
                 "name": {
                     "type": "string",
                     "required": False,
-                    "description": "New name for the watchlist (1-255 chars)"
+                    "description": "New name for the feed (1-255 chars)"
                 },
                 "website_url": {
                     "type": "string",
@@ -516,7 +516,7 @@ def get_operation_schema(
                 "analysis": {
                     "type": "object",
                     "required": False,
-                    "description": "Updated watchlist analysis data"
+                    "description": "Updated feed analysis data"
                 },
                 "selected_subreddits": {
                     "type": "array[object]",
@@ -525,26 +525,26 @@ def get_operation_schema(
                 }
             },
             "examples": [] if not include_examples else [
-                {"watchlist_id": "550e8400-e29b-41d4-a716-446655440000", "name": "Updated Watchlist Name"},
+                {"feed_id": "550e8400-e29b-41d4-a716-446655440000", "name": "Updated Feed Name"},
                 {
-                    "watchlist_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "feed_id": "550e8400-e29b-41d4-a716-446655440000",
                     "selected_subreddits": [
                         {"name": "Python", "description": "Python programming", "subscribers": 1500000, "confidence_score": 0.9}
                     ]
                 }
             ]
         },
-        "delete_watchlist": {
-            "description": "Delete a watchlist",
+        "delete_feed": {
+            "description": "Delete a feed",
             "parameters": {
-                "watchlist_id": {
+                "feed_id": {
                     "type": "string",
                     "required": True,
-                    "description": "UUID of the watchlist to delete"
+                    "description": "UUID of the feed to delete"
                 }
             },
             "examples": [] if not include_examples else [
-                {"watchlist_id": "550e8400-e29b-41d4-a716-446655440000"}
+                {"feed_id": "550e8400-e29b-41d4-a716-446655440000"}
             ]
         }
     }
@@ -595,11 +595,11 @@ async def execute_operation(
         "fetch_posts": fetch_subreddit_posts,
         "fetch_multiple": fetch_multiple_subreddits,
         "fetch_comments": fetch_submission_with_comments,
-        "create_watchlist": create_watchlist,
-        "list_watchlists": list_watchlists,
-        "get_watchlist": get_watchlist,
-        "update_watchlist": update_watchlist,
-        "delete_watchlist": delete_watchlist
+        "create_feed": create_feed,
+        "list_feeds": list_feeds,
+        "get_feed": get_feed,
+        "update_feed": update_feed,
+        "delete_feed": delete_feed
     }
 
     if operation_id not in operations:
@@ -619,8 +619,8 @@ async def execute_operation(
         # Execute operation with await for async operations
         async_operations = [
             "discover_subreddits", "fetch_multiple", "fetch_comments",
-            "create_watchlist", "list_watchlists",
-            "get_watchlist", "update_watchlist", "delete_watchlist"
+            "create_feed", "list_feeds",
+            "get_feed", "update_feed", "delete_feed"
         ]
         if operation_id in async_operations:
             result = await operations[operation_id](**params)
