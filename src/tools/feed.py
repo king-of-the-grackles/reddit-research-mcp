@@ -350,3 +350,57 @@ async def delete_feed(
                 "error": f"Request failed: {str(e)}",
                 "suggestion": "Check that AUDIENCE_API_URL is correctly configured"
             }
+
+
+async def get_feed_config(
+    feed_id: str,
+    ctx: Context = None
+) -> Dict[str, Any]:
+    """
+    Get configuration for a feed.
+
+    Args:
+        feed_id: UUID of the feed to get config for
+        ctx: FastMCP context (optional)
+
+    Returns:
+        Feed configuration with subreddit names
+    """
+    base_url = get_api_base_url()
+    auth_headers = get_auth_headers()
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            response = await client.get(
+                f"{base_url}/feeds/{feed_id}/config",
+                headers=auth_headers
+            )
+
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 401:
+                return {
+                    "error": "Authentication required",
+                    "suggestion": "Ensure you are authenticated with valid Descope credentials"
+                }
+            elif response.status_code == 404:
+                return {
+                    "error": f"Feed not found: {feed_id}",
+                    "suggestion": "Use list_feeds to see available feeds"
+                }
+            else:
+                return {
+                    "error": f"API error: {response.status_code}",
+                    "details": response.text
+                }
+
+        except httpx.TimeoutException:
+            return {
+                "error": "Request timeout",
+                "suggestion": "The API server may be unavailable. Try again later."
+            }
+        except httpx.RequestError as e:
+            return {
+                "error": f"Request failed: {str(e)}",
+                "suggestion": "Check that AUDIENCE_API_URL is correctly configured"
+            }

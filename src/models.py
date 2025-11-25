@@ -60,60 +60,69 @@ class SubmissionWithCommentsResult(BaseModel):
 Comment.model_rebuild()
 
 
-# Watchlist API Models
+# Feed API Models
 
-class WatchlistAnalysis(BaseModel):
-    """Analysis data for watchlist."""
+class FeedAnalysis(BaseModel):
+    """Analysis data for feed."""
     description: str = Field(..., min_length=10, max_length=1000)
     audience_personas: List[str] = Field(..., min_length=1, max_length=10)
     keywords: List[str] = Field(..., min_length=1, max_length=50)
 
 
 class SubredditOption(BaseModel):
-    """Subreddit option for watchlist."""
+    """Subreddit option for feed."""
     name: str = Field(..., min_length=1, max_length=100)
     description: str = Field(..., max_length=1000)
     subscribers: int = Field(..., ge=0)
     confidence_score: float = Field(..., ge=0.0, le=1.0)
 
 
-class WatchlistCreate(BaseModel):
-    """Request model for creating a watchlist."""
+class FeedCreate(BaseModel):
+    """Request model for creating a feed."""
     name: str = Field(..., min_length=1, max_length=255)
     website_url: Optional[str] = None
-    analysis: Optional[WatchlistAnalysis] = None
+    analysis: Optional[FeedAnalysis] = None
     selected_subreddits: List[SubredditOption] = Field(..., min_length=1)
 
 
-class WatchlistUpdate(BaseModel):
-    """Request model for updating a watchlist (all fields optional)."""
+class FeedUpdate(BaseModel):
+    """Request model for updating a feed (all fields optional)."""
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     website_url: Optional[str] = None
-    analysis: Optional[WatchlistAnalysis] = None
+    analysis: Optional[FeedAnalysis] = None
     selected_subreddits: Optional[List[SubredditOption]] = Field(None, min_length=1)
 
 
-class Watchlist(BaseModel):
-    """Response model for a watchlist."""
+class Feed(BaseModel):
+    """Response model for a feed."""
     id: str
     user_id: str
     name: str
     website_url: Optional[str] = None
-    analysis: Optional[WatchlistAnalysis] = None
+    analysis: Optional[FeedAnalysis] = None
     selected_subreddits: List[SubredditOption]
     created_at: datetime
     updated_at: datetime
 
 
-class WatchlistListResponse(BaseModel):
-    """Response model for listing watchlists."""
-    watchlists: List[Watchlist]
+class FeedListResponse(BaseModel):
+    """Response model for listing feeds."""
+    feeds: List[Feed]
     total: int
     limit: int
     offset: int
 
 
-class WatchlistDeleteResponse(BaseModel):
-    """Response model for deleting a watchlist."""
+class FeedDeleteResponse(BaseModel):
+    """Response model for deleting a feed."""
     success: bool
     message: str
+
+
+class FeedConfig(BaseModel):
+    """Response model for feed configuration."""
+    profile_id: str
+    profile_name: str
+    subreddits: List[str]
+    show_nsfw: bool
+    has_subreddits: bool
