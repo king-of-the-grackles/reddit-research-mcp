@@ -25,6 +25,7 @@ from src.tools.feed import (
     create_feed,
     list_feeds,
     get_feed,
+    get_feed_config,
     update_feed,
     delete_feed,
 )
@@ -166,6 +167,7 @@ def discover_operations(ctx: Context) -> Dict[str, Any]:
             "create_feed": "Create a new feed with analysis and subreddits",
             "list_feeds": "List all feeds for the authenticated user",
             "get_feed": "Get a specific feed by ID",
+            "get_feed_config": "Get feed configuration with subreddit names",
             "update_feed": "Update an existing feed",
             "delete_feed": "Delete a feed"
         },
@@ -495,6 +497,26 @@ def get_operation_schema(
                 {"feed_id": "550e8400-e29b-41d4-a716-446655440000"}
             ]
         },
+        "get_feed_config": {
+            "description": "Get configuration for a feed (subreddit names, settings)",
+            "parameters": {
+                "feed_id": {
+                    "type": "string",
+                    "required": True,
+                    "description": "UUID of the feed to get config for"
+                }
+            },
+            "returns": {
+                "profile_id": "UUID of the feed",
+                "profile_name": "Name of the feed",
+                "subreddits": "Array of subreddit names (strings)",
+                "show_nsfw": "Whether NSFW content is enabled",
+                "has_subreddits": "Whether feed has any subreddits configured"
+            },
+            "examples": [] if not include_examples else [
+                {"feed_id": "550e8400-e29b-41d4-a716-446655440000"}
+            ]
+        },
         "update_feed": {
             "description": "Update an existing feed (partial update - only include fields to change)",
             "parameters": {
@@ -598,6 +620,7 @@ async def execute_operation(
         "create_feed": create_feed,
         "list_feeds": list_feeds,
         "get_feed": get_feed,
+        "get_feed_config": get_feed_config,
         "update_feed": update_feed,
         "delete_feed": delete_feed
     }
@@ -620,7 +643,7 @@ async def execute_operation(
         async_operations = [
             "discover_subreddits", "fetch_multiple", "fetch_comments",
             "create_feed", "list_feeds",
-            "get_feed", "update_feed", "delete_feed"
+            "get_feed", "get_feed_config", "update_feed", "delete_feed"
         ]
         if operation_id in async_operations:
             result = await operations[operation_id](**params)
