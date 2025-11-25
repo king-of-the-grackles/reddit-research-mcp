@@ -650,6 +650,15 @@ async def execute_operation(
         else:
             result = operations[operation_id](**params)
 
+        # Check if result indicates an error (feed operations return {"error": "..."} on failure)
+        if isinstance(result, dict) and "error" in result:
+            return {
+                "success": False,
+                "error": result.get("error"),
+                "suggestion": result.get("suggestion", ""),
+                "data": result
+            }
+
         return {
             "success": True,
             "data": result

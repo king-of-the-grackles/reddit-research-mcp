@@ -5,11 +5,14 @@ forwarding the user's Descope authentication token.
 """
 
 import os
+import logging
 from typing import Dict, Any, Optional, List
 import httpx
 from fastmcp import Context
 from fastmcp.server.dependencies import get_http_headers
 
+# Configure logging for feed operations
+logger = logging.getLogger(__name__)
 
 # API configuration
 def get_api_base_url() -> str:
@@ -50,6 +53,11 @@ async def create_feed(
     base_url = get_api_base_url()
     auth_headers = get_auth_headers()
 
+    # Debug logging
+    logger.info(f"🔧 create_feed: base_url={base_url}")
+    logger.info(f"🔧 create_feed: auth_header={'present' if auth_headers.get('Authorization') else 'MISSING'}")
+    logger.info(f"🔧 create_feed: name={name}, subreddits={len(selected_subreddits)}")
+
     payload = {
         "name": name,
         "selected_subreddits": selected_subreddits
@@ -62,38 +70,46 @@ async def create_feed(
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
+            logger.info(f"🔧 create_feed: Making POST request to {base_url}/feeds")
             response = await client.post(
                 f"{base_url}/feeds",
                 json=payload,
                 headers=auth_headers
             )
+            logger.info(f"🔧 create_feed: Response status={response.status_code}")
 
             if response.status_code == 201:
+                logger.info(f"🔧 create_feed: SUCCESS - Feed created")
                 return response.json()
             elif response.status_code == 401:
+                logger.error(f"🔧 create_feed: 401 Unauthorized")
                 return {
                     "error": "Authentication required",
                     "suggestion": "Ensure you are authenticated with valid Descope credentials"
                 }
             elif response.status_code == 422:
                 error_data = response.json()
+                logger.error(f"🔧 create_feed: 422 Validation error - {error_data}")
                 return {
                     "error": "Validation error",
                     "details": error_data.get("details", error_data),
                     "suggestion": "Check that all required fields meet validation requirements"
                 }
             else:
+                logger.error(f"🔧 create_feed: {response.status_code} - {response.text}")
                 return {
                     "error": f"API error: {response.status_code}",
                     "details": response.text
                 }
 
         except httpx.TimeoutException:
+            logger.error(f"🔧 create_feed: TIMEOUT after 30s")
             return {
                 "error": "Request timeout",
                 "suggestion": "The API server may be unavailable. Try again later."
             }
         except httpx.RequestError as e:
+            logger.error(f"🔧 create_feed: REQUEST ERROR - {str(e)}")
             return {
                 "error": f"Request failed: {str(e)}",
                 "suggestion": "Check that AUDIENCE_API_URL is correctly configured"
