@@ -9,7 +9,7 @@ import logging
 from typing import Dict, Any, Optional, List
 import httpx
 from fastmcp import Context
-from fastmcp.server.dependencies import get_http_headers
+from fastmcp.server.dependencies import get_http_headers, get_access_token
 
 # Configure logging for feed operations
 logger = logging.getLogger(__name__)
@@ -21,9 +21,31 @@ def get_api_base_url() -> str:
 
 
 def get_auth_headers() -> Dict[str, str]:
-    """Extract authorization header from the current request context."""
+    """
+    Extract authorization header for API requests.
+
+    Uses get_access_token() first (more reliable in tool execution context),
+    then falls back to get_http_headers() for backwards compatibility.
+    """
+    # Try get_access_token() first - this is the validated token from FastMCP auth
+    try:
+        access_token = get_access_token()
+        logger.info(f"🔐 get_auth_headers: access_token={'present' if access_token else 'NONE'}")
+
+        if access_token and access_token.token:
+            logger.info(f"🔐 get_auth_headers: Using validated access token")
+            return {
+                "Authorization": f"Bearer {access_token.token}",
+                "Content-Type": "application/json"
+            }
+    except Exception as e:
+        logger.warning(f"🔐 get_auth_headers: get_access_token() failed: {e}")
+
+    # Fallback to get_http_headers() - may return empty dict if request context unavailable
     headers = get_http_headers()
     auth_header = headers.get("authorization", "")
+    logger.warning(f"🔐 get_auth_headers: Falling back to headers - auth={'present' if auth_header else 'MISSING'}")
+
     return {
         "Authorization": auth_header,
         "Content-Type": "application/json"
