@@ -2,6 +2,8 @@ from fastmcp import FastMCP, Context
 from fastmcp.prompts import Message
 from fastmcp.server.auth.providers.descope import DescopeProvider
 from typing import Optional, Literal, List, Union, Dict, Any, Annotated
+
+from src.auth.multi_issuer_verifier import MultiIssuerJWTVerifier
 import sys
 import os
 import json
@@ -31,11 +33,30 @@ from src.tools.feed import (
 )
 from src.resources import register_resources
 
-# Configure Descope authentication
+# Configure Descope authentication with multi-issuer support
+# This allows the server to accept both:
+# - OAuth/DCR tokens (issuer: https://api.descope.com/v1/apps/{project_id})
+# - Session tokens (issuer: {project_id} - just the project ID per Descope docs)
+project_id = os.getenv("DESCOPE_PROJECT_ID")
+descope_base_url = os.getenv("DESCOPE_BASE_URL", "https://api.descope.com")
+server_url = os.getenv("SERVER_URL", "http://localhost:8000")
+
+# Create multi-issuer verifier to support both token types
+multi_issuer_verifier = MultiIssuerJWTVerifier(
+    issuers=[
+        f"{descope_base_url}/v1/apps/{project_id}",  # OAuth DCR tokens (Claude Desktop)
+        project_id,                                   # Session tokens (agent backend)
+    ],
+    jwks_uri=f"{descope_base_url}/{project_id}/.well-known/jwks.json",
+    audience=project_id,
+    algorithm="RS256",
+)
+
 auth = DescopeProvider(
-    project_id=os.getenv("DESCOPE_PROJECT_ID"),
-    base_url=os.getenv("SERVER_URL", "http://localhost:8000"),
-    descope_base_url=os.getenv("DESCOPE_BASE_URL", "https://api.descope.com")
+    project_id=project_id,
+    base_url=server_url,
+    descope_base_url=descope_base_url,
+    token_verifier=multi_issuer_verifier,  # Use our multi-issuer verifier
 )
 
 # Initialize MCP server with authentication
