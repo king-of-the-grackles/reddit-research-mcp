@@ -113,9 +113,11 @@ class MultiIssuerJWTVerifier(JWTVerifier):
                 )
                 return None
 
-            # Validate audience if configured (reuse parent logic pattern)
-            if self.audience:
-                aud = claims.get("aud")
+            # Validate audience if configured AND token has an audience claim
+            # Note: Descope session tokens may not include 'aud' claim, so we skip
+            # audience validation for tokens without it. OAuth tokens typically include it.
+            aud = claims.get("aud")
+            if self.audience and aud is not None:
                 audience_valid = False
 
                 if isinstance(self.audience, list):

@@ -80,9 +80,11 @@ The session token MUST have:
 | Claim | Expected Value | Notes |
 |-------|----------------|-------|
 | `iss` | `{project_id}` | Just the project ID (e.g., `P33G9OI0uZKubCM9c3RE9KGxPJbn`) |
-| `aud` | `{project_id}` | Same as issuer |
+| `aud` | `{project_id}` or *missing* | Optional - Descope session tokens may not include this |
 | `exp` | Future timestamp | Token must not be expired |
 | `sub` | User ID | Used as `client_id` in the MCP context |
+
+**Note:** Audience (`aud`) validation is only performed when the token includes the claim. Descope session tokens from `getSessionToken()` typically don't include `aud`, which is acceptable.
 
 ### Verifying Your Token Format
 
