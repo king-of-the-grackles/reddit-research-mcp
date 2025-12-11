@@ -1,0 +1,51 @@
+name: Publish to PyPI and MCP Registry
+
+on:
+  push:
+    tags: ["v*"]  # Triggers on version tags like v0.1.2
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # Required for GitHub OIDC authentication with MCP Registry
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # === PyPI Publishing ===
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Build package
+        run: uv build
+
+      - name: Publish to PyPI
+        run: uv publish
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+
+      # === MCP Registry Publishing ===
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+
+      - name: Update server.json version from tag
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "Publishing version: $VERSION"
+          jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp && mv server.tmp server.json
+          cat server.json
+
+      - name: Authenticate to MCP Registry (OIDC)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to MCP Registry
+        run: ./mcp-publisher publish
