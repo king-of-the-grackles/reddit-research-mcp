@@ -148,6 +148,65 @@ async def server_info(request) -> Response:
             status_code=500
         )
 
+# Add public MCP config endpoint for server discovery (no auth required)
+# This follows the emerging .well-known/mcp-config standard for MCP server discovery
+# Used by MCP marketplaces and clients to understand server capabilities without authentication
+@mcp.custom_route("/.well-known/mcp-config", methods=["GET"])
+async def mcp_config(request) -> Response:
+    """Public MCP configuration endpoint - no authentication required.
+
+    Provides server discovery information for MCP clients and marketplaces.
+    This endpoint allows automated tools to scan and understand MCP server
+    capabilities without needing to authenticate first.
+    """
+    try:
+        server_base_url = os.getenv('SERVER_URL', 'http://localhost:8000')
+        return JSONResponse({
+            "version": "1.0",
+            "servers": [
+                {
+                    "name": "Dialog MCP Server",
+                    "description": "Reddit research and analysis tools with semantic subreddit discovery across 20,000+ indexed communities",
+                    "endpoint": f"{server_base_url}/mcp",
+                    "transport": "sse",
+                    "capabilities": ["tools", "resources", "prompts"],
+                    "authentication": {
+                        "required": True,
+                        "type": "oauth2",
+                        "authorization_server": f"{server_base_url}/.well-known/oauth-authorization-server"
+                    },
+                    "tools": [
+                        {
+                            "name": "discover_operations",
+                            "description": "Discover available Reddit operations and recommended workflows"
+                        },
+                        {
+                            "name": "get_operation_schema",
+                            "description": "Get detailed requirements and parameters for a Reddit operation"
+                        },
+                        {
+                            "name": "execute_operation",
+                            "description": "Execute a Reddit operation with validated parameters"
+                        }
+                    ],
+                    "operations": {
+                        "discover_subreddits": "Find communities using semantic vector search",
+                        "search_subreddit": "Search within a specific subreddit",
+                        "fetch_posts": "Get posts from a subreddit",
+                        "fetch_multiple": "Batch fetch from multiple subreddits",
+                        "fetch_comments": "Get complete comment trees for analysis"
+                    }
+                }
+            ]
+        })
+    except Exception as e:
+        print(f"ERROR: MCP config request failed: {e}", flush=True)
+        return JSONResponse(
+            {"status": "error", "message": str(e)},
+            status_code=500
+        )
+
+
 # Initialize Reddit client (will be updated with config when available)
 reddit = None
 
