@@ -153,5 +153,8 @@ ai/*.rtf
 # AI tool directories
 .gemini/
 
+# Reports directory
+reports/
+
 # Git
 .gitignore
