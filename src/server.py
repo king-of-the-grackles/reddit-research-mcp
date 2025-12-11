@@ -680,7 +680,8 @@ def get_operation_schema(
 
 
 @mcp.tool(
-    description="Execute a Reddit operation with validated parameters"
+    description="Execute a Reddit operation with validated parameters",
+    annotations={"readOnlyHint": False, "openWorldHint": True}
 )
 async def execute_operation(
     operation_id: Annotated[str, "Operation to execute"],
