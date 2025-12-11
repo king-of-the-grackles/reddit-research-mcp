@@ -1,4 +1,4 @@
-mcp-name: io.dialog.tools/dialog-mcp
+mcp-name: io.github.king-of-the-grackles/reddit-research-mcp
 
 # Dialog MCP Server
 

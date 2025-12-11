@@ -1,6 +1,6 @@
 [project]
 name = "reddit-research-mcp"
-version = "1.0.0"
+version = "1.0.1"
 description = "A minimal Model Context Protocol server for Reddit content access"
 readme = "README.md"
 requires-python = ">=3.11"
