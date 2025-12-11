@@ -149,3 +149,9 @@ mcp-publisher
 fastmcp/
 mcp-remote/
 ai/*.rtf
+
+# AI tool directories
+.gemini/
+
+# Git
+.gitignore
