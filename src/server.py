@@ -194,8 +194,26 @@ async def mcp_config(request) -> Response:
                         "search_subreddit": "Search within a specific subreddit",
                         "fetch_posts": "Get posts from a subreddit",
                         "fetch_multiple": "Batch fetch from multiple subreddits",
-                        "fetch_comments": "Get complete comment trees for analysis"
-                    }
+                        "fetch_comments": "Get complete comment trees for analysis",
+                        "create_feed": "Create a new feed with analysis and subreddits",
+                        "list_feeds": "List all feeds for the authenticated user",
+                        "get_feed": "Get a specific feed by ID",
+                        "get_feed_config": "Get feed configuration with subreddit names",
+                        "update_feed": "Update an existing feed",
+                        "delete_feed": "Delete a feed"
+                    },
+                    "prompts": [
+                        {
+                            "name": "reddit_research",
+                            "description": "Conduct comprehensive Reddit research on any topic or question"
+                        }
+                    ],
+                    "resources": [
+                        {
+                            "uri": "reddit://server-info",
+                            "description": "Comprehensive server capabilities, version, and usage information"
+                        }
+                    ]
                 }
             ]
         })
