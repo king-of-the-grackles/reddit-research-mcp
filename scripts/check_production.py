@@ -153,8 +153,23 @@ def get_json(url, token=None):
         return json.loads(body)
 
 
+def transient(exc):
+    if isinstance(exc, HTTPError):
+        return exc.code == 429 or exc.code >= 500
+    return isinstance(exc, (TimeoutError, URLError))
+
+
 def api_get(path, token, **params):
-    return get_json(API+path+("?"+urlencode(params, doseq=True) if params else ""), token)
+    # A slow or throttled Render API is not a production failure; retry it so
+    # the cron only fails when the platform API stays unavailable.
+    url = API+path+("?"+urlencode(params, doseq=True) if params else "")
+    for attempt in range(3):
+        try:
+            return get_json(url, token)
+        except Exception as exc:
+            if attempt == 2 or not transient(exc):
+                raise
+            time.sleep(2 ** attempt)
 
 
 def iso(value):

@@ -7,6 +7,7 @@ from src.auth.multi_issuer_verifier import MultiIssuerJWTVerifier
 import sys
 import os
 import json
+import logging
 from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
@@ -38,9 +39,33 @@ from contextlib import asynccontextmanager
 from src.blocking_io import upstream_workers, WorkerBusy, ProgressContext
 from src.observability import RuntimeMetrics
 from src.chroma_client import reset_client_cache
+from src.tool_arguments import ArgumentNormalization
 
+logger = logging.getLogger(__name__)
 reddit = None
 runtime_metrics = None
+
+
+def current_caller_identity(token_getter=None):
+    """Resolve (user_id, client_id) for the request in flight.
+
+    `user_id` is the Descope subject claim — the human behind the call — while
+    `client_id` identifies the registered OAuth client (one per DCR install), so
+    the two answer different questions and both are recorded. Attribution must
+    never be able to fail an operation: any missing context, absent claim, or
+    lookup error degrades to anonymous rather than raising.
+    """
+    if token_getter is None:
+        from fastmcp.server.dependencies import get_access_token
+        token_getter = get_access_token
+    try:
+        token = token_getter()
+        if token is None:
+            return None, None
+        claims = getattr(token, "claims", None) or {}
+        return claims.get("sub"), getattr(token, "client_id", None)
+    except Exception:
+        return None, None
 
 
 @asynccontextmanager
@@ -114,6 +139,7 @@ Reddit MCP Server - Three-Layer Architecture
 
 Quick Start: Read reddit://server-info for complete documentation.
 """)
+mcp.add_middleware(ArgumentNormalization())
 
 # Add public health check endpoint (no auth required)
 @mcp.custom_route("/health", methods=["GET"])
@@ -812,6 +838,8 @@ async def execute_operation(
             outcome = ("upstream_rate_limit" if status == 429 or "rate limit" in text else
                        "upstream_timeout" if "timeout" in text or "timed out" in text else
                        "invalid_input" if status in (400, 403, 404) or "invalid" in text else "internal_error")
+            if outcome == "internal_error":
+                logger.error("Operation %r returned an error: %s", operation_id, result.get("error"))
             return {
                 "success": False,
                 "error": result.get("error"),
@@ -839,6 +867,8 @@ async def execute_operation(
             outcome = "upstream_rate_limit"
         elif isinstance(e, TypeError):
             outcome = "invalid_input"
+        if outcome == "internal_error":
+            logger.exception("Operation %r failed", operation_id)
         return {
             "success": False,
             "error": str(e),
@@ -847,7 +877,9 @@ async def execute_operation(
     finally:
         if metrics:
             metrics.inflight_operations -= 1
-            metrics.record_operation(operation_id, time.monotonic()-started, outcome)
+            user_id, client_id = current_caller_identity()
+            metrics.record_operation(operation_id, time.monotonic()-started, outcome,
+                                     user_id=user_id, client_id=client_id)
 
 
 def suggest_recovery(operation_id: str, error: Exception) -> str:

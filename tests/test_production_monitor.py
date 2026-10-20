@@ -142,3 +142,44 @@ def test_truncated_platform_failure_window_is_never_healthy():
     from scripts.check_production import evaluate_platform_events, MonitoringError
     with pytest.raises(MonitoringError):
         evaluate_platform_events([{"event":{"type":"server_failed","timestamp":NOW.isoformat()}}]*100,NOW)
+
+
+def flaky_render_api(monkeypatch, failures):
+    """Make get_json raise each queued failure once, then succeed."""
+    import scripts.check_production as monitor
+    calls = []
+    def fake_get_json(url, token=None):
+        calls.append(url)
+        if failures:
+            raise failures.pop(0)
+        return {"ok": True}
+    monkeypatch.setattr(monitor, "get_json", fake_get_json)
+    monkeypatch.setattr(monitor.time, "sleep", lambda _: None)
+    return monitor, calls
+
+
+def http_error(code):
+    from urllib.error import HTTPError
+    return HTTPError("https://api.render.com/v1/logs", code, "error", {}, None)
+
+
+@pytest.mark.parametrize("failure", [TimeoutError(), http_error(429), http_error(503)])
+def test_transient_render_api_failure_is_retried(monkeypatch, failure):
+    monitor, calls = flaky_render_api(monkeypatch, [failure])
+    assert monitor.api_get("/logs", "token") == {"ok": True}
+    assert len(calls) == 2
+
+
+def test_render_api_gives_up_after_three_attempts(monkeypatch):
+    monitor, calls = flaky_render_api(monkeypatch, [TimeoutError() for _ in range(3)])
+    with pytest.raises(TimeoutError):
+        monitor.api_get("/logs", "token")
+    assert len(calls) == 3
+
+
+def test_render_api_credential_rejection_is_not_retried(monkeypatch):
+    from urllib.error import HTTPError
+    monitor, calls = flaky_render_api(monkeypatch, [http_error(401)])
+    with pytest.raises(HTTPError):
+        monitor.api_get("/logs", "token")
+    assert len(calls) == 1

@@ -26,9 +26,14 @@ class RuntimeMetrics:
     def emit(self, event, **fields):
         logger.info(json.dumps({"event": event, "boot_id": self.boot_id, **fields}))
 
-    def record_operation(self, operation, elapsed_seconds, outcome):
+    def record_operation(self, operation, elapsed_seconds, outcome,
+                         user_id=None, client_id=None):
+        # Identity is the token's subject and OAuth client, never the token itself.
+        # Both are omitted rather than nulled when the caller is unauthenticated,
+        # so anonymous rows stay the shape they had before attribution existed.
+        identity = {k: v for k, v in (("user_id", user_id), ("client_id", client_id)) if v}
         self.emit("operation_complete", operation=operation,
-                  elapsed_ms=round(elapsed_seconds * 1000, 2), outcome=outcome)
+                  elapsed_ms=round(elapsed_seconds * 1000, 2), outcome=outcome, **identity)
 
     @asynccontextmanager
     async def sampling(self, interval=60):
