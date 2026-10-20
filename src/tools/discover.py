@@ -276,20 +276,14 @@ async def discover_subreddits(
                 # If JSON parsing fails, treat as single string
                 queries = [queries]
         
-        batch_results = {}
-        total_api_calls = 0
-
-        for search_query in queries:
-            result = await _search_vector_db(
-                search_query, collection, limit, include_nsfw, min_confidence, config, ctx
-            )
-            batch_results[search_query] = result
-            total_api_calls += 1
+        batch_results = await _search_vector_db_batch(
+            queries, collection, limit, include_nsfw, min_confidence, config, ctx
+        )
 
         return {
             "batch_mode": True,
             "total_queries": len(queries),
-            "api_calls_made": total_api_calls,
+            "api_calls_made": 1,
             "results": batch_results,
             "tip": "Batch mode reduces API calls. Use the exact 'name' field when calling other tools."
         }
@@ -334,145 +328,72 @@ async def _search_vector_db(
     Returns:
         Dictionary with search results and statistics
     """
+    results = await _search_vector_db_batch(
+        [query], collection, limit, include_nsfw, min_confidence, config, ctx
+    )
+    return results[query]
+
+
+async def _search_vector_db_batch(
+    queries: List[str],
+    collection,
+    limit: int,
+    include_nsfw: bool,
+    min_confidence: float,
+    config: SearchConfig = None,
+    ctx: Context = None
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Run every query in a single vector-DB request and rank each result set.
+
+    The proxy embeds all query texts in one call and is rate limited per
+    request, so a batch costs the same as a single query.
+
+    Returns:
+        Dictionary mapping each query to its search results
+    """
     if config is None:
         config = DEFAULT_SEARCH_CONFIG
 
+    # Search with a larger limit to allow for filtering
+    search_limit = min(limit * config.SEARCH_MULTIPLIER, config.MAX_SEARCH_RESULTS)
     try:
-        # Search with a larger limit to allow for filtering
-        search_limit = min(limit * config.SEARCH_MULTIPLIER, config.MAX_SEARCH_RESULTS)
-        
-        # Perform semantic search
         results = collection.query(
-            query_texts=[query],
+            query_texts=list(queries),
             n_results=search_limit
         )
-        
-        if not results or not results['metadatas'] or not results['metadatas'][0]:
-            return {
-                "query": query,
-                "subreddits": [],
-                "summary": {
-                    "total_found": 0,
-                    "returned": 0,
-                    "has_more": False
-                },
-                "next_actions": ["Try different search terms"]
-            }
-        
-        # Process results
-        processed_results = []
-        nsfw_filtered = 0
-        total_results = len(results['metadatas'][0])
-
-        for i, (metadata, distance) in enumerate(zip(
-            results['metadatas'][0],
-            results['distances'][0]
-        )):
-            # Report progress
-            if ctx:
-                await ctx.report_progress(
-                    progress=i + 1,
-                    total=total_results,
-                    message=f"Analyzing r/{metadata.get('name', 'unknown')}"
-                )
-
-            # Skip NSFW if not requested
-            if metadata.get('nsfw', False) and not include_nsfw:
-                nsfw_filtered += 1
-                continue
-            
-            # Convert distance to confidence score using configurable model
-            confidence = calculate_confidence_from_distance(distance, config)
-
-            # Apply penalties for generic subreddits (configurable)
-            subreddit_name = metadata.get('name', '').lower()
-            if subreddit_name in config.GENERIC_SUBREDDITS and query.lower() not in subreddit_name:
-                confidence *= config.GENERIC_PENALTY_MULTIPLIER
-
-            # Apply boosts/penalties based on subscriber count
-            subscribers = metadata.get('subscribers', 0)
-            if subscribers > config.LARGE_SUB_THRESHOLD:
-                confidence = min(1.0, confidence * config.LARGE_SUB_BOOST_MULTIPLIER)
-            elif subscribers < config.SMALL_SUB_THRESHOLD:
-                confidence *= config.SMALL_SUB_PENALTY_MULTIPLIER
-            
-            # Determine match type based on distance
-            if distance < 0.3:
-                match_type = "exact_match"
-            elif distance < 0.7:
-                match_type = "strong_match"
-            elif distance < 1.0:
-                match_type = "partial_match"
-            else:
-                match_type = "weak_match"
-
-            # Classify match tier based on distance
-            match_tier = classify_match_tier(distance, config)
-
-            processed_results.append({
-                "name": metadata.get('name', 'unknown'),
-                "subscribers": metadata.get('subscribers', 0),
-                "confidence": round(confidence, 3),
-                "distance": round(distance, 3),
-                "match_tier": match_tier,
-                "url": metadata.get('url', f"https://reddit.com/r/{metadata.get('name', '')}")
-            })
-
-        # Filter by minimum confidence if specified (Phase 2a.3)
-        if min_confidence > 0.0:
-            processed_results = [
-                r for r in processed_results
-                if r['confidence'] >= min_confidence
-            ]
-
-        # Sort by confidence (highest first), then by subscribers
-        processed_results.sort(key=lambda x: (-x['confidence'], -(x['subscribers'] or 0)))
-        
-        # Limit to requested number
-        limited_results = processed_results[:limit]
-        
-        # Calculate basic stats
-        total_found = len(processed_results)
-
-        # Calculate confidence statistics (Phase 2a.4)
-        confidence_scores = [r['confidence'] for r in limited_results]
-        confidence_stats = calculate_confidence_stats(confidence_scores)
-        tier_distribution = calculate_tier_distribution(limited_results)
-
-        # Generate next actions (only meaningful ones)
-        next_actions = []
-        if len(processed_results) > limit:
-            next_actions.append(f"{len(processed_results)} total results found, showing {limit}")
-        if nsfw_filtered > 0:
-            next_actions.append(f"{nsfw_filtered} NSFW subreddits filtered")
-
-        return {
-            "query": query,
-            "subreddits": limited_results,
-            "summary": {
-                "total_found": total_found,
-                "returned": len(limited_results),
-                "has_more": total_found > len(limited_results),
-                "confidence_stats": confidence_stats,
-                "tier_distribution": tier_distribution
-            },
-            "next_actions": next_actions
-        }
-        
     except Exception as e:
-        # Map error patterns to specific recovery actions
-        error_str = str(e).lower()
-        if "not found" in error_str:
-            guidance = "Verify subreddit name spelling"
-        elif "rate" in error_str:
-            guidance = "Rate limited - wait 60 seconds"
-        elif "timeout" in error_str:
-            guidance = "Reduce limit parameter to 10"
-        else:
-            guidance = "Try simpler search terms"
-            
+        return {query: _search_error(query, e) for query in queries}
+
+    metadatas = (results or {}).get('metadatas') or []
+    distances = (results or {}).get('distances') or []
+    ranked = {}
+    for i, query in enumerate(queries):
+        try:
+            ranked[query] = await _rank_results(
+                query,
+                metadatas[i] if i < len(metadatas) else [],
+                distances[i] if i < len(distances) else [],
+                limit, include_nsfw, min_confidence, config, ctx
+            )
+        except Exception as e:
+            ranked[query] = _search_error(query, e)
+    return ranked
+
+
+async def _rank_results(
+    query: str,
+    metadatas: List[Dict[str, Any]],
+    distances: List[float],
+    limit: int,
+    include_nsfw: bool,
+    min_confidence: float,
+    config: SearchConfig,
+    ctx: Context = None
+) -> Dict[str, Any]:
+    """Score, filter, and sort one query's raw vector-DB matches."""
+    if not metadatas:
         return {
-            "error": f"Failed to search vector database: {str(e)}",
             "query": query,
             "subreddits": [],
             "summary": {
@@ -480,8 +401,131 @@ async def _search_vector_db(
                 "returned": 0,
                 "has_more": False
             },
-            "next_actions": [guidance]
+            "next_actions": ["Try different search terms"]
         }
+
+    # Process results
+    processed_results = []
+    nsfw_filtered = 0
+    total_results = len(metadatas)
+
+    for i, (metadata, distance) in enumerate(zip(metadatas, distances)):
+        # Report progress
+        if ctx:
+            await ctx.report_progress(
+                progress=i + 1,
+                total=total_results,
+                message=f"Analyzing r/{metadata.get('name', 'unknown')}"
+            )
+
+        # Skip NSFW if not requested
+        if metadata.get('nsfw', False) and not include_nsfw:
+            nsfw_filtered += 1
+            continue
+        
+        # Convert distance to confidence score using configurable model
+        confidence = calculate_confidence_from_distance(distance, config)
+
+        # Apply penalties for generic subreddits (configurable)
+        subreddit_name = metadata.get('name', '').lower()
+        if subreddit_name in config.GENERIC_SUBREDDITS and query.lower() not in subreddit_name:
+            confidence *= config.GENERIC_PENALTY_MULTIPLIER
+
+        # Apply boosts/penalties based on subscriber count
+        subscribers = metadata.get('subscribers', 0)
+        if subscribers > config.LARGE_SUB_THRESHOLD:
+            confidence = min(1.0, confidence * config.LARGE_SUB_BOOST_MULTIPLIER)
+        elif subscribers < config.SMALL_SUB_THRESHOLD:
+            confidence *= config.SMALL_SUB_PENALTY_MULTIPLIER
+        
+        # Determine match type based on distance
+        if distance < 0.3:
+            match_type = "exact_match"
+        elif distance < 0.7:
+            match_type = "strong_match"
+        elif distance < 1.0:
+            match_type = "partial_match"
+        else:
+            match_type = "weak_match"
+
+        # Classify match tier based on distance
+        match_tier = classify_match_tier(distance, config)
+
+        processed_results.append({
+            "name": metadata.get('name', 'unknown'),
+            "subscribers": metadata.get('subscribers', 0),
+            "confidence": round(confidence, 3),
+            "distance": round(distance, 3),
+            "match_tier": match_tier,
+            "url": metadata.get('url', f"https://reddit.com/r/{metadata.get('name', '')}")
+        })
+
+    # Filter by minimum confidence if specified (Phase 2a.3)
+    if min_confidence > 0.0:
+        processed_results = [
+            r for r in processed_results
+            if r['confidence'] >= min_confidence
+        ]
+
+    # Sort by confidence (highest first), then by subscribers
+    processed_results.sort(key=lambda x: (-x['confidence'], -(x['subscribers'] or 0)))
+    
+    # Limit to requested number
+    limited_results = processed_results[:limit]
+    
+    # Calculate basic stats
+    total_found = len(processed_results)
+
+    # Calculate confidence statistics (Phase 2a.4)
+    confidence_scores = [r['confidence'] for r in limited_results]
+    confidence_stats = calculate_confidence_stats(confidence_scores)
+    tier_distribution = calculate_tier_distribution(limited_results)
+
+    # Generate next actions (only meaningful ones)
+    next_actions = []
+    if len(processed_results) > limit:
+        next_actions.append(f"{len(processed_results)} total results found, showing {limit}")
+    if nsfw_filtered > 0:
+        next_actions.append(f"{nsfw_filtered} NSFW subreddits filtered")
+
+    return {
+        "query": query,
+        "subreddits": limited_results,
+        "summary": {
+            "total_found": total_found,
+            "returned": len(limited_results),
+            "has_more": total_found > len(limited_results),
+            "confidence_stats": confidence_stats,
+            "tier_distribution": tier_distribution
+        },
+        "next_actions": next_actions
+    }
+
+
+def _search_error(query: str, e: Exception) -> Dict[str, Any]:
+    """Shape a failed vector-DB search like an empty result, with recovery guidance."""
+    # Map error patterns to specific recovery actions
+    error_str = str(e).lower()
+    if "not found" in error_str:
+        guidance = "Verify subreddit name spelling"
+    elif "rate" in error_str:
+        guidance = "Rate limited - wait 60 seconds"
+    elif "timeout" in error_str:
+        guidance = "Reduce limit parameter to 10"
+    else:
+        guidance = "Try simpler search terms"
+        
+    return {
+        "error": f"Failed to search vector database: {str(e)}",
+        "query": query,
+        "subreddits": [],
+        "summary": {
+            "total_found": 0,
+            "returned": 0,
+            "has_more": False
+        },
+        "next_actions": [guidance]
+    }
 
 
 def validate_subreddit(

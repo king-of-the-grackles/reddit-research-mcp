@@ -38,3 +38,19 @@ def test_reddit_socket_timeouts_are_finite(monkeypatch,supplied,expected):
     with BoundedSession() as client:
         client.get("https://example.invalid", timeout=supplied)
     assert observed == [expected]
+
+
+def test_client_does_not_warn_about_the_worker_threads_private_event_loop(caplog):
+    # Async operations run under asyncio.run on the dedicated Reddit worker
+    # thread, so PRAW sees a running loop that is not the server's.
+    import asyncio
+    import logging
+    client = get_reddit_client()
+    async def inside_worker_loop():
+        client._check_for_async()
+    try:
+        with caplog.at_level(logging.WARNING, logger="praw"):
+            asyncio.run(inside_worker_loop())
+        assert [r.getMessage() for r in caplog.records if r.name == "praw"] == []
+    finally:
+        client.close()

@@ -100,6 +100,9 @@ def get_reddit_client() -> praw.Reddit:
         ratelimit_seconds=0,
         timeout=10,
         check_for_updates=False,
+        # PRAW only ever runs on the dedicated worker thread (src/blocking_io.py);
+        # the loop it would warn about is that thread's own, not the server's.
+        check_for_async=False,
     )
     
     # Explicitly enable read-only mode

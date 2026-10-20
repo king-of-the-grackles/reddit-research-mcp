@@ -383,14 +383,16 @@ class TestEdgeCases:
     async def test_batch_mode_with_min_confidence(self):
         """Test batch mode respects min_confidence parameter."""
         collection = Mock()
+        # One request carries both queries, so Chroma returns one result set per query.
+        result_set = [
+            {'name': 'test1', 'subscribers': 1000, 'nsfw': False, 'url': 'https://reddit.com/r/test1'},
+            {'name': 'test2', 'subscribers': 2000, 'nsfw': False, 'url': 'https://reddit.com/r/test2'}
+        ]
         collection.query.return_value = {
-            'ids': [['test1', 'test2']],
-            'distances': [[0.5, 0.9]],
-            'documents': [['test1', 'test2']],
-            'metadatas': [[
-                {'name': 'test1', 'subscribers': 1000, 'nsfw': False, 'url': 'https://reddit.com/r/test1'},
-                {'name': 'test2', 'subscribers': 2000, 'nsfw': False, 'url': 'https://reddit.com/r/test2'}
-            ]]
+            'ids': [['test1', 'test2']] * 2,
+            'distances': [[0.5, 0.9]] * 2,
+            'documents': [['test1', 'test2']] * 2,
+            'metadatas': [result_set] * 2
         }
 
         with patch('src.tools.discover.get_chroma_client'), \
@@ -407,6 +409,8 @@ class TestEdgeCases:
             assert response['batch_mode'] is True
 
             # Each query should respect min_confidence
+            assert set(response['results']) == {"query1", "query2"}
             for query, result in response['results'].items():
+                assert result['subreddits'], f"{query} lost its results"
                 for subreddit in result['subreddits']:
                     assert subreddit['confidence'] >= 0.6
